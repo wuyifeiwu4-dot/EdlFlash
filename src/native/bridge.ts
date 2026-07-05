@@ -108,8 +108,6 @@ export type RunSpec = {
   options: Record<string, string | boolean | undefined>;
 };
 
-export type EngineEvent = 'onLog' | 'onProgress' | 'onDeviceStatus' | 'onPartitions';
-
 export interface EdlBridge {
   ensureAssetsReady(): Promise<{version: string; ready: boolean}>;
   getRootStatus(): Promise<{available: boolean; status: string}>;

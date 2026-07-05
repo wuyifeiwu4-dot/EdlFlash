@@ -38,9 +38,6 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,7 +54,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -293,7 +289,6 @@ public class FlashEngine {
 
     private static final String ASSET_EDL_DIR = "edl_bundle";
     private static final String PREFS = "settings";
-    private static final String PREF_LANG = "language";
     private static final String PREF_SU_CMD = "su_command";
     private static final String PREF_ASSET_VERSION = "asset_version";
     private static final String PREF_VIP_AUTH = "vip_auth";
@@ -306,8 +301,6 @@ public class FlashEngine {
     // qdl 升级到 toggle 版（open 补 SET_INTERFACE 复位 data-toggle，修小米 SDM845 收不到 HELLO）；
     // bump 此版本号强制设备重新解包随包二进制与内置 loader，避免继续跑缓存的旧 replug 版。
     private static final String ASSET_VERSION = "2026-06-10-02";
-    private static final String LANG_ZH = "zh-CN";
-    private static final String LANG_SYSTEM = "system";
     private static final String ROOT_EDL_SUBDIR = "edl";
     private static final String DEFAULT_SU_CMD = "su -c";
     private static final String DEFAULT_USB_VID = "05c6";
@@ -328,34 +321,6 @@ public class FlashEngine {
     // qdl 看门狗轮询间隔：每隔这么久 join 一次进程退出并检查取消/阶段，
     // 不是对 USB 设备轮询（等设备由 qdl 自身的 usb_open 250ms 扫描承担）。
     private static final long COMMAND_WATCHDOG_INTERVAL_MS = 500L;
-    private static final String OPT_LOADER = "--loader=";
-    private static final String OPT_VID = "--vid=";
-    private static final String OPT_PID = "--pid=";
-    private static final String OPT_PORTNAME = "--portname=";
-    private static final String OPT_SERIAL = "--serial";
-    private static final String OPT_SERIAL_NUMBER = "--serial_number=";
-    private static final String OPT_DEBUGMODE = "--debugmode";
-    private static final String OPT_SKIP_STORAGE_INIT = "--skipstorageinit";
-    private static final String OPT_SKIP_RESPONSE = "--skipresponse";
-    private static final String OPT_SKIP_WRITE = "--skipwrite";
-    private static final String OPT_MEMORY = "--memory=";
-    private static final String OPT_LUN = "--lun=";
-    private static final String OPT_SECTOR_SIZE = "--sectorsize=";
-    private static final String OPT_MAX_PAYLOAD = "--maxpayload=";
-    private static final String OPT_GPT_NUM = "--gpt-num-part-entries=";
-    private static final String OPT_GPT_SIZE = "--gpt-part-entry-size=";
-    private static final String OPT_GPT_START = "--gpt-part-entry-start-lba=";
-    private static final String OPT_DEVICE_MODEL = "--devicemodel=";
-    private static final String OPT_TCPPORT = "--tcpport=";
-    private static final String OPT_RESETMODE = "--resetmode=";
-    private static final String OPT_PARTITION_FILENAME = "--partitionfilename=";
-    private static final String OPT_PARTITIONS = "--partitions=";
-    private static final String OPT_SKIP = "--skip=";
-    private static final String OPT_GENXML = "--genxml";
-    private static final String EXPECTED_PACKAGE = "com.edl.flash";
-    private static final String EXPECTED_CERT_SHA256 =
-            "5CB9482753CAAC1197CF8C049A259040391ABF841E079B85F0235FCE4D4B0EEA";
-    private static final String DEFAULT_COMMAND = "r";
     private static final String TOOL_QDL = "qdl";
     private static final String XML_TRANSFERCFG = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
             + "<data>\n"
@@ -389,51 +354,6 @@ public class FlashEngine {
             "getstorageinfo", "setbootablestoragedrive", "getactiveslot",
             "setactiveslot", "send", "xml", "rawxml", "reset", "nop",
             "modules", "provision", "qfil", "sign"
-    };
-
-    private static final String[] COMMAND_LABELS = new String[]{
-            "服务器模式",
-            "整机内存转储",
-            "打印 GPT 表",
-            "导出 GPT 目录",
-            "提取分区",
-            "批量提取分区目录",
-            "提取全盘镜像",
-            "按扇区提取",
-            "刷写分区",
-            "批量刷写分区目录",
-            "刷写全盘镜像",
-            "按扇区刷写",
-            "擦除分区",
-            "按扇区擦除",
-            "按分区擦除扇区",
-            "提取加密 Footer",
-            "读取内存到文件",
-            "读取内存为十六进制",
-            "读取 DWORD",
-            "读取 QWORD",
-            "导出内存表",
-            "写入内存（文件）",
-            "写入内存（HEX）",
-            "写入 DWORD",
-            "写入 QWORD",
-            "内存拷贝",
-            "查看 SecureBoot 信息",
-            "提取 PBL",
-            "提取 QFPROM",
-            "获取存储信息",
-            "设置启动存储 LUN",
-            "读取当前槽位",
-            "设置当前槽位",
-            "发送 Firehose 指令",
-            "发送 XML 文件",
-            "发送 XML 内容",
-            "重启/复位",
-            "保持连接",
-            "模块命令",
-            "UFS Provision",
-            "QFIL 刷写",
-            "签名工具"
     };
 
     private static final Map<String, CommandSpec> COMMAND_SPECS = new HashMap<>();
@@ -483,7 +403,6 @@ public class FlashEngine {
     // 设备状态轮询用独立后台线程：每秒一次的 USB root/sysfs 探测放后台，避免主线程 IO 卡顿(ANR)，
     // 也不挤占刷写用的 executor。
     private final ExecutorService edlStatusExecutor = Executors.newSingleThreadExecutor();
-    private final AtomicBoolean edlStatusBusy = new AtomicBoolean(false);
     private ScheduledFuture<?> progressFuture;
     private final AtomicInteger progressSeq = new AtomicInteger(0);
 
@@ -545,11 +464,9 @@ public class FlashEngine {
     private ViewShim contentRoot;
     private String lastFirehoseStep;
     private int logLineCount = 0;
-    private static final int MAX_LOG_LINES = 200;
     // 日志攒批：高频行先入缓冲，60ms 合并成一次 append，减少 UI 调度与整树 relayout。
     private final java.util.ArrayList<CharSequence> pendingLogBatch = new java.util.ArrayList<>();
     private int pendingLogSession = -1;
-    private final AtomicBoolean logFlushScheduled = new AtomicBoolean(false);
     private boolean firehoseStepLogged = false;
     private boolean configureStepLogged = false;
     // QFIL 拆分刷写期间置位：各分区/补丁的独立 qdl 调用一律不自动复位，
@@ -604,13 +521,11 @@ public class FlashEngine {
     private static final String SAHARA_CONFIG_NAME = "qsahara_device_programmer.xml";
 
     private String builtinVendorDir;
-    private String builtinVendorLabel;
     private String builtinChip;
     private String builtinDevprgFileName;
     private String builtinDevprgAssetPath;
     private String builtinDigestAssetPath;
     private String builtinSignAssetPath;
-    private boolean builtinMultipleLoaders;
     private Display signInputDirPath;
     private Display signKeyPath;
     private Display signOutputDirPath;
@@ -734,8 +649,6 @@ public class FlashEngine {
     private File activeVipDigestFile;
     private File activeVipSignFile;
     private volatile boolean lastEdlConnected = false;
-    private boolean fhSkipConfigureWarned = false;
-    private boolean fhSpecialRwModeWarned = false;
     private int cachedBlockSize = -1;
     private int cachedMaxPayload = -1;
     private long cachedTotalBlocks = -1L;
@@ -747,11 +660,9 @@ public class FlashEngine {
     private long progressLastTimeMs = 0L;
     private EdlPackageInfo edlPackageInfoData;
 
-    private PickTarget pickTarget = PickTarget.NONE;
     private ArgType arg1Type = ArgType.NONE;
     private ArgType arg2Type = ArgType.NONE;
     private ArgType arg3Type = ArgType.NONE;
-    private boolean rootProbeStarted = false;
     private List<Uri> arg1UriList;
     private List<Uri> arg2UriList;
 
@@ -946,7 +857,7 @@ public class FlashEngine {
         // 分区批量读取集合（取代行内多选框），由 startSelectedMultiRead 消费。
         multiReadSelection = in.multiReadPartitions;
 
-        // 分区单选兜底：r/w/e 命令且 arg1 未显式给出时，用选中分区名填 arg1（对齐原版 applyPartitionSelection 的注入）。
+        // 分区单选兜底：r/w/e 命令且 arg1 未显式给出时，用选中分区名填 arg1。
         if (in.selectedPartition != null && !in.selectedPartition.isEmpty()
                 && in.arg1 != null && in.arg1.isEmpty()) {
             String cmd = in.command == null ? "" : in.command;
@@ -1006,7 +917,7 @@ public class FlashEngine {
         return lastCommandSuccess;
     }
 
-    /** 同步版命令守卫：置 commandRunning 占用→跑→finally 复位；与原 executeUserCommand 等价但不另起线程。 */
+    /** 同步版命令守卫：置 commandRunning 占用→跑→finally 复位，不另起线程。 */
     private boolean runGuardedPublic(Runnable task) {
         if (!commandRunning.compareAndSet(false, true)) {
             return false;
@@ -1166,14 +1077,6 @@ public class FlashEngine {
         return choosePreferredLoaderCandidate(listBuiltinDevprgFiles(vendor, chip));
     }
 
-
-
-
-
-
-
-
-
     private void resetVipAuthState() {
         vipAuthorized = false;
         vipSessionHealthy = false;
@@ -1182,11 +1085,6 @@ public class FlashEngine {
                 .putBoolean(PREF_VIP_AUTH, false)
                 .remove(PREF_VIP_AUTH_KEY)
                 .apply();
-    }
-
-    private void restoreVipAuthState() {
-        // VIP 授权只对当前 Firehose 会话有效，应用重启后直接丢弃旧状态。
-        resetVipAuthState();
     }
 
     private boolean hasAuthDigest() {
@@ -1257,10 +1155,6 @@ public class FlashEngine {
         return "EDL_VIP_PARTITION=" + shQuote(vipFile.getAbsolutePath()) + " ";
     }
 
-
-
-
-
     private int findCommandIndex(String command) {
         if (command == null) {
             return -1;
@@ -1272,9 +1166,6 @@ public class FlashEngine {
         }
         return -1;
     }
-
-
-
 
     // 批量读取：直接取分区列表里勾选的行（行内多选框），不再弹对话框。
     private void startSelectedMultiRead() {
@@ -1320,36 +1211,8 @@ public class FlashEngine {
         arg1Input.setText(TextUtils.join(",", names));
         outputNameInput.setText("");
         // 此处已在 runGuardedPublic 的命令临界区内（commandRunning 已占用），
-        // 直接同步执行；若再走 executeUserCommand 会二次 CAS 失败而空跑。
+        // 直接同步执行；若再套一层异步命令守卫会二次 CAS 失败而空跑。
         runSelectedCommand();
-    }
-
-
-
-
-
-
-
-
-
-
-
-    private String joinFileNames(List<File> files, int limit) {
-        if (files == null || files.isEmpty()) {
-            return "无";
-        }
-        int count = Math.min(limit, files.size());
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < count; i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-            sb.append(files.get(i).getName());
-        }
-        if (files.size() > count) {
-            sb.append(" 等").append(files.size()).append("个");
-        }
-        return sb.toString();
     }
 
     private EdlPackageInfo parseEdlPackageInfo(String basePath) {
@@ -1468,7 +1331,6 @@ public class FlashEngine {
         String lower = path.trim().toLowerCase(Locale.US);
         return lower.endsWith(".ofp") || lower.endsWith(".ops");
     }
-
 
     private File resolveEdlImagesDir(File baseDir) {
         if (baseDir == null) {
@@ -1618,14 +1480,7 @@ public class FlashEngine {
         }
     }
 
-
-
-
-
     // 首屏卡片错峰浮现：给内容容器挂上 layoutAnimation 并调度一次
-
-
-
 
     private BuiltinAuthFiles findBuiltinAuthFiles(String vendorDir, String chip, String devprgChoice) {
         if (vendorDir == null || chip == null) {
@@ -1898,10 +1753,6 @@ public class FlashEngine {
         }
     }
 
-
-
-
-
     private String bytesToHex(byte[] data) {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) {
@@ -1969,36 +1820,6 @@ public class FlashEngine {
             appendSummaryLog("执行异常(误报权限不足): " + detail + "\n" + trace);
             showToast(getString(R.string.error_permission));
             finishProgress(false);
-        }
-    }
-
-    // 三入口统一守卫：CAS 占用，失败即提示而非在单线程 executor 上排队饿死。
-    private void executeUserCommand(Runnable task) {
-        if (!commandRunning.compareAndSet(false, true)) {
-            showToast(getString(R.string.toast_command_running));
-            return;
-        }
-        commandCanceled.set(false);
-        activeProcess.set(null);
-        qdlPhase.set(QdlPhase.IDLE);
-        watchingQdlOutput.set(false);
-        setOperationButtonsRunning(true);
-        try {
-            executor.execute(() -> {
-                try {
-                    runGuarded(task);
-                } finally {
-                    activeProcess.set(null);
-                    watchingQdlOutput.set(false);
-                    qdlPhase.set(QdlPhase.IDLE);
-                    commandRunning.set(false);
-                    setOperationButtonsRunning(false);
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            // executor 已关停（Activity 正在销毁）：复位占用，避免标志悬挂。
-            commandRunning.set(false);
-            setOperationButtonsRunning(false);
         }
     }
 
@@ -2083,10 +1904,6 @@ public class FlashEngine {
 
     private File getRootEdlDir() {
         return new File(getFilesDir(), ROOT_EDL_SUBDIR);
-    }
-
-    private String getRootEdlPath() {
-        return getRootEdlDir().getAbsolutePath();
     }
 
     private String getRootEdlBinDir() {
@@ -3356,60 +3173,6 @@ public class FlashEngine {
         return path + "_lun" + lun;
     }
 
-    private boolean prepareFullImageFile(File runDir, File outputFile, long totalBytes) {
-        if (outputFile == null || totalBytes <= 0) {
-            return false;
-        }
-        String cmd = "dd if=/dev/zero of=" + shQuote(outputFile.getAbsolutePath())
-                + " bs=1 count=0 seek=" + totalBytes + " 2>/dev/null";
-        try {
-            CommandResult result = runCommandWithRoot(runDir, cmd, true, getRootEdlBinDir());
-            if (result.exitCode != 0) {
-                appendWorkLog(runDir, "创建镜像失败");
-                recordErrorReason("创建镜像失败");
-                return false;
-            }
-            return true;
-        } catch (IOException | InterruptedException e) {
-            appendWorkLog(runDir, "创建镜像失败: " + e.getMessage());
-            recordErrorReason("创建镜像失败");
-            return false;
-        }
-    }
-
-    private boolean writeFileIntoImage(File runDir, File outputFile, File inputFile,
-                                       long offset, int sectorSize) {
-        if (outputFile == null || inputFile == null) {
-            return false;
-        }
-        int block = sectorSize > 0 ? sectorSize : 4096;
-        long seek = block > 0 ? (offset / block) : 0;
-        String cmd = "dd if=" + shQuote(inputFile.getAbsolutePath())
-                + " of=" + shQuote(outputFile.getAbsolutePath())
-                + " bs=" + block + " seek=" + seek + " conv=notrunc 2>/dev/null";
-        try {
-            CommandResult result = runCommandWithRoot(runDir, cmd, true, getRootEdlBinDir());
-            if (result.exitCode != 0) {
-                appendWorkLog(runDir, "写入镜像失败");
-                recordErrorReason("写入镜像失败");
-                return false;
-            }
-            return true;
-        } catch (IOException | InterruptedException e) {
-            appendWorkLog(runDir, "写入镜像失败: " + e.getMessage());
-            recordErrorReason("写入镜像失败");
-            return false;
-        }
-    }
-
-    private void updateFullDumpProgress(long processedBytes, long totalBytes) {
-        if (totalBytes <= 0) {
-            return;
-        }
-        int percent = (int) Math.min(100L, (processedBytes * 100L) / totalBytes);
-        setProgressValue(percent, "提取全盘 " + percent + "%");
-    }
-
     private boolean runFhWritePartition(File runDir, File loaderFile, String partName, String imagePath) {
         if (partName == null || partName.trim().isEmpty() || imagePath == null || imagePath.trim().isEmpty()) {
             showToast(getString(R.string.toast_missing_required));
@@ -4023,18 +3786,6 @@ public class FlashEngine {
             return PERSIST_DECISION_SKIP;
         }
         return PERSIST_DECISION_CANCEL;
-    }
-
-    private boolean containsPersistPartition(List<String> names) {
-        if (names == null || names.isEmpty()) {
-            return false;
-        }
-        for (String name : names) {
-            if (name != null && name.trim().equalsIgnoreCase("persist")) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private List<String> splitCommaList(String text) {
@@ -6387,69 +6138,6 @@ public class FlashEngine {
         return runFhSimpleXmlCommand(runDir, ctx, xmlFile, null, "擦除 " + label);
     }
 
-    private File writeFhProgramXml(File runDir, String filename, String label,
-                                   int lun, long startSector, long numSectors, int sectorSize) {
-        if (runDir == null) {
-            return null;
-        }
-        String safeLabel = label == null ? "" : label.trim();
-        if (safeLabel.isEmpty() || "read".equalsIgnoreCase(safeLabel) || "write".equalsIgnoreCase(safeLabel)) {
-            File imageFile = filename == null ? null : new File(filename);
-            String inferred = inferWriteLabel(lun, startSector, numSectors, imageFile);
-            if (inferred == null || inferred.trim().isEmpty()) {
-                appendWorkLog(runDir, "无法确定分区标签，请先读取 GPT 或使用分区名");
-                recordErrorReason("无法确定分区标签");
-                return null;
-            }
-            safeLabel = inferred.trim();
-        }
-        String safeFile = filename == null || filename.trim().isEmpty()
-                ? (sanitizeFileName(safeLabel) + ".img")
-                : new File(filename).getName();
-        String xml = "<?xml version=\"1.0\" ?>\n"
-                + "<data>\n"
-                + "  <program SECTOR_SIZE_IN_BYTES=\"" + sectorSize + "\" "
-                + "filename=\"" + safeFile + "\" "
-                + "label=\"" + safeLabel + "\" "
-                + "physical_partition_number=\"" + lun + "\" "
-                + "start_sector=\"" + startSector + "\" "
-                + "num_partition_sectors=\"" + numSectors + "\" />\n"
-                + "</data>\n";
-        try {
-            return writeTextFile(runDir, "fh_" + sanitizeFileName(safeLabel) + ".xml", xml);
-        } catch (IOException e) {
-            appendWorkLog(runDir, "生成 XML 失败: " + e.getMessage());
-            recordErrorReason("生成 XML 失败");
-            return null;
-        }
-    }
-
-    private File writeFhReadXml(File runDir, String filename,
-                                int lun, long startSector, long numSectors, int sectorSize) {
-        if (runDir == null) {
-            return null;
-        }
-        String safeFile = filename == null || filename.trim().isEmpty()
-                ? "read.img"
-                : new File(filename).getName();
-        safeFile = sanitizeFileName(safeFile);
-        String xml = "<?xml version=\"1.0\" ?>\n"
-                + "<data>\n"
-                + "  <read SECTOR_SIZE_IN_BYTES=\"" + sectorSize + "\" "
-                + "filename=\"" + safeFile + "\" "
-                + "physical_partition_number=\"" + lun + "\" "
-                + "start_sector=\"" + startSector + "\" "
-                + "num_partition_sectors=\"" + numSectors + "\" />\n"
-                + "</data>\n";
-        try {
-            return writeTextFile(runDir, "fh_read_" + safeFile + ".xml", xml);
-        } catch (IOException e) {
-            appendWorkLog(runDir, "生成读取 XML 失败: " + e.getMessage());
-            recordErrorReason("生成读取 XML 失败");
-            return null;
-        }
-    }
-
     private File writeQdlReadXml(File runDir, File outputFile,
                                  int lun, long startSector, long numSectors, int sectorSize,
                                  String label, boolean requireLabel) {
@@ -6606,42 +6294,6 @@ public class FlashEngine {
         } catch (IOException e) {
             appendWorkLog(runDir, "生成刷写 XML 失败: " + e.getMessage());
             recordErrorReason("生成刷写 XML 失败");
-            return null;
-        }
-    }
-
-    private File writeQdlEraseXml(File runDir, String label, String filename, int lun,
-                                  long startSector, long numSectors, int sectorSize) {
-        if (runDir == null) {
-            return null;
-        }
-        String safeLabel = label == null ? "" : label.trim();
-        if (safeLabel.isEmpty() || "erase".equalsIgnoreCase(safeLabel)) {
-            String inferred = inferEraseLabel(lun, startSector, numSectors);
-            if (inferred == null || inferred.trim().isEmpty()) {
-                appendWorkLog(runDir, "无法确定分区标签，请先读取 GPT 或使用分区名");
-                recordErrorReason("无法确定分区标签");
-                return null;
-            }
-            safeLabel = inferred.trim();
-        }
-        String safeFile = filename == null || filename.trim().isEmpty()
-                ? ""
-                : sanitizeFileName(new File(filename).getName());
-        String xml = "<?xml version=\"1.0\" ?>\n"
-                + "<data>\n"
-                + "  <erase SECTOR_SIZE_IN_BYTES=\"" + sectorSize + "\" "
-                + "label=\"" + safeLabel + "\" "
-                + (safeFile.isEmpty() ? "" : "filename=\"" + safeFile + "\" ")
-                + "physical_partition_number=\"" + lun + "\" "
-                + "start_sector=\"" + startSector + "\" "
-                + "num_partition_sectors=\"" + numSectors + "\" />\n"
-                + "</data>\n";
-        try {
-            return writeTextFile(runDir, "qdl_erase_" + sanitizeFileName(safeLabel) + ".xml", xml);
-        } catch (IOException e) {
-            appendWorkLog(runDir, "生成擦除 XML 失败: " + e.getMessage());
-            recordErrorReason("生成擦除 XML 失败");
             return null;
         }
     }
@@ -7044,32 +6696,6 @@ public class FlashEngine {
         }
     }
 
-    private boolean buildGptOutputsFromRawprogram(File runDir) {
-        File[] rawFiles = runDir.listFiles((dir, name) ->
-                name != null && name.startsWith("rawprogram") && name.endsWith(".xml"));
-        if (rawFiles == null || rawFiles.length == 0) {
-            return false;
-        }
-        List<GptEntry> entries = new ArrayList<>();
-        for (File rawFile : rawFiles) {
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(new FileInputStream(rawFile), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (!line.contains("<program")) {
-                        continue;
-                    }
-                    GptEntry entry = parseProgramLine(line);
-                    if (entry != null && !isGptMetaEntry(entry.name)) {
-                        entries.add(entry);
-                    }
-                }
-            } catch (IOException ignored) {
-            }
-        }
-        return buildGptOutputs(runDir, entries);
-    }
-
     private boolean buildGptOutputs(File runDir, List<GptEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return false;
@@ -7112,29 +6738,6 @@ public class FlashEngine {
             return false;
         }
         return true;
-    }
-
-    private List<GptEntry> parseGptEntriesFromFiles(File runDir) {
-        List<GptEntry> entries = new ArrayList<>();
-        if (runDir == null || !runDir.exists()) {
-            return entries;
-        }
-        File[] gptFiles = runDir.listFiles((dir, name) ->
-                name != null && name.startsWith("gpt_main") && name.endsWith(".bin"));
-        if (gptFiles == null || gptFiles.length == 0) {
-            return entries;
-        }
-        int defaultSectorSize = resolveGptSectorSize();
-        for (File file : gptFiles) {
-            int lun = parseLunFromGptFileName(file.getName());
-            List<GptEntry> parsed = parseGptMainFile(file, defaultSectorSize, lun);
-            for (GptEntry entry : parsed) {
-                if (!isGptMetaEntry(entry.name)) {
-                    entries.add(entry);
-                }
-            }
-        }
-        return entries;
     }
 
     private GptHeader parseGptHeaderFile(File headerFile) {
@@ -7389,39 +6992,6 @@ public class FlashEngine {
         return memory.toLowerCase(Locale.US);
     }
 
-    private long resolveQdlOutChunkSize() {
-        long value = -1;
-        if (maxPayloadInput != null) {
-            String input = maxPayloadInput.getText().toString().trim();
-            if (!input.isEmpty()) {
-                value = parseNumberFlexible(input, -1);
-            }
-        }
-        if (value <= 0 && isFastModeEnabled()) {
-            int cached = getCachedMaxPayload();
-            if (cached > 0) {
-                value = cached;
-            } else {
-                int sectorSize = resolveFhSectorSize();
-                if (sectorSize > 0) {
-                    value = (long) sectorSize * FAST_PAYLOAD_MULTIPLIER;
-                } else {
-                    value = FAST_MAX_PAYLOAD_DEFAULT;
-                }
-            }
-        }
-        if (value <= 0) {
-            return -1;
-        }
-        if (value > FAST_MAX_PAYLOAD_CAP) {
-            value = FAST_MAX_PAYLOAD_CAP;
-        }
-        if (value < FAST_MAX_PAYLOAD_MIN) {
-            value = FAST_MAX_PAYLOAD_MIN;
-        }
-        return value;
-    }
-
     private long parseLongSafe(String value, long fallback) {
         if (value == null || value.trim().isEmpty()) {
             return fallback;
@@ -7673,33 +7243,6 @@ public class FlashEngine {
         return new GptEntry(name, partition, start, num, sectorSize);
     }
 
-    private void applyPartitionSelection(String command) {
-        if (partitionOptions.isEmpty()) {
-            return;
-        }
-        int index = selectedPartitionIndex;
-        if (index < 0 || index >= partitionOptions.size()) {
-            showToast(getString(R.string.toast_missing_required));
-            return;
-        }
-        PartitionOption option = partitionOptions.get(index);
-        String cmd = command == null ? "r" : command;
-        int cmdIndex = findCommandIndex(cmd);
-        if (cmdIndex >= 0) {
-            commandSpinner.setSelection(cmdIndex);
-        }
-        arg1Input.setText(option.name);
-        if ("r".equals(cmd)) {
-            outputNameInput.setText(buildDownloadImagePath(option.name));
-        } else if ("w".equals(cmd)) {
-            arg2Uri = null;
-            arg2Input.setText("");
-        }
-        if (option.lun != null && !option.lun.isEmpty()) {
-            lunInput.setText(option.lun);
-        }
-    }
-
     private GptEntry findGptEntry(String name, String lun) {
         if (name == null || name.trim().isEmpty()) {
             return null;
@@ -7758,8 +7301,6 @@ public class FlashEngine {
             this.lastUsableLba = lastUsableLba;
         }
     }
-
-
 
     // 分区列表：整行点击=单选高亮(记入 selectedPartitionIndex)，行内多选框=批量读取集合
 
@@ -8197,55 +7738,6 @@ public class FlashEngine {
         return hasWriteLike;
     }
 
-    private VipTablePaths resolveVipTablePaths(File digestFile, File signFile) {
-        if (digestFile == null && signFile == null) {
-            return null;
-        }
-        File signed = null;
-        File chain = null;
-        String dName = digestFile == null ? "" : digestFile.getName().toLowerCase(Locale.US);
-        String sName = signFile == null ? "" : signFile.getName().toLowerCase(Locale.US);
-        boolean dIsSigned = dName.contains("digeststosign");
-        boolean sIsSigned = sName.contains("digeststosign");
-        boolean dIsChain = dName.contains("chainedtableofdigests");
-        boolean sIsChain = sName.contains("chainedtableofdigests");
-
-        if (dIsSigned) {
-            signed = digestFile;
-        } else if (sIsSigned) {
-            signed = signFile;
-        }
-        if (dIsChain) {
-            chain = digestFile;
-        } else if (sIsChain) {
-            chain = signFile;
-        }
-
-        if (signed == null && chain == null) {
-            boolean dElf = isElfFile(digestFile);
-            boolean sElf = isElfFile(signFile);
-            if (dElf && !sElf) {
-                signed = digestFile;
-                chain = signFile;
-            } else if (sElf && !dElf) {
-                signed = signFile;
-                chain = digestFile;
-            } else {
-                signed = digestFile;
-                chain = signFile;
-            }
-        } else if (signed == null) {
-            signed = chain == digestFile ? signFile : digestFile;
-        } else if (chain == null) {
-            chain = signed == digestFile ? signFile : digestFile;
-        }
-
-        if (signed != null && chain != null && signed.equals(chain)) {
-            chain = null;
-        }
-        return new VipTablePaths(signed, chain);
-    }
-
     private boolean isElfFile(File file) {
         if (file == null || !file.exists()) {
             return false;
@@ -8318,14 +7810,6 @@ public class FlashEngine {
                 .putBoolean(PREF_VIP_AUTH, false)
                 .remove(PREF_VIP_AUTH_KEY)
                 .apply();
-    }
-
-    private String buildVipAuthKey(String usbPath, String vidPid) {
-        if (usbPath == null || usbPath.trim().isEmpty()) {
-            return null;
-        }
-        String vidPidValue = vidPid == null ? "" : vidPid.trim();
-        return usbPath.trim() + "|" + vidPidValue;
     }
 
     private UsbPathInfo resolveEdlUsbPathInfo(PortId portId) {
@@ -8536,18 +8020,6 @@ public class FlashEngine {
         }
     }
 
-    private String detectSerialPath() {
-        String fromDev = findFirstDevNode("ttyUSB");
-        if (fromDev != null) {
-            return fromDev;
-        }
-        fromDev = findFirstDevNode("ttyACM");
-        if (fromDev != null) {
-            return fromDev;
-        }
-        return findFirstDevNode("ttyHSUSB");
-    }
-
     private String findSerialPortForVidPid(String vid, String pid) {
         String targetVid = normalizeHexId(vid);
         String targetPid = normalizeHexId(pid);
@@ -8653,20 +8125,6 @@ public class FlashEngine {
         }
     }
 
-    private String readFileContentWithRoot(String path) {
-        if (path == null || path.trim().isEmpty() || !rootAvailable) {
-            return null;
-        }
-        try {
-            CommandResult result = runCommandWithRoot(null, "cat " + shQuote(path), false, getRootEdlBinDir());
-            if (result.exitCode == 0) {
-                return result.output;
-            }
-        } catch (IOException | InterruptedException ignored) {
-        }
-        return null;
-    }
-
     private String readDebugUsbDevices() {
         String content = readFileContent(new File("/sys/kernel/debug/usb/devices"));
         if (content != null && !content.trim().isEmpty()) {
@@ -8708,28 +8166,6 @@ public class FlashEngine {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    private PortId parseVidPid(String text) {
-        if (text == null) {
-            return null;
-        }
-        Matcher matcher = VID_PID_PATTERN.matcher(text.trim());
-        if (!matcher.matches()) {
-            return null;
-        }
-        String vid = normalizeHexId(matcher.group(1));
-        if (vid == null) {
-            return null;
-        }
-        String pid = normalizeHexId(matcher.group(2));
-        if (pid == null && pidInput != null) {
-            pid = normalizeHexId(pidInput.getText().toString().trim());
-        }
-        if (pid == null) {
-            pid = normalizeHexId(DEFAULT_USB_PID);
-        }
-        return pid == null ? null : new PortId(vid, pid);
     }
 
     private String resolveQdlPortArg() {
@@ -8976,18 +8412,6 @@ public class FlashEngine {
         return name.replace("/", "_").replace("\\", "_");
     }
 
-    private boolean isExtractionCommand(String command) {
-        return "r".equals(command)
-                || "rf".equals(command)
-                || "rs".equals(command)
-                || "rl".equals(command)
-                || "peek".equals(command)
-                || "memtbl".equals(command)
-                || "pbl".equals(command)
-                || "qfp".equals(command)
-                || "footer".equals(command);
-    }
-
     private void ensureDownloadDirExists() {
         ensureDirExists(DEFAULT_DOWNLOAD_DIR);
     }
@@ -9215,102 +8639,6 @@ public class FlashEngine {
             }
         }
         return value;
-    }
-
-    private String ensureOutputFile(String outputPath) {
-        if (outputPath == null || outputPath.trim().isEmpty()) {
-            return null;
-        }
-        String normalized = normalizeAbsolutePath(outputPath);
-        File file = new File(normalized);
-        if (!file.exists() || file.length() == 0) {
-            File altFile = null;
-            String lower = normalized.toLowerCase(Locale.US);
-            if (lower.endsWith(".img")) {
-                altFile = new File(normalized.substring(0, normalized.length() - 4) + ".bin");
-            } else if (lower.endsWith(".bin")) {
-                altFile = new File(normalized.substring(0, normalized.length() - 4) + ".img");
-            } else {
-                altFile = new File(normalized + ".img");
-            }
-            if (altFile != null && altFile.exists() && altFile.length() > 0) {
-                if (altFile.getName().toLowerCase(Locale.US).endsWith(".bin")) {
-                    File target = new File(ensureImgExtension(altFile.getAbsolutePath()));
-                    if (renameFile(altFile, target)) {
-                        return target.getAbsolutePath();
-                    }
-                }
-                return altFile.getAbsolutePath();
-            }
-            return null;
-        }
-        String lower = file.getName().toLowerCase(Locale.US);
-        if (!lower.endsWith(".img")) {
-            String targetPath = ensureImgExtension(file.getAbsolutePath());
-            File target = new File(targetPath);
-            if (renameFile(file, target)) {
-                return target.getAbsolutePath();
-            }
-            if (target.exists() && target.length() > 0) {
-                return target.getAbsolutePath();
-            }
-        }
-        return file.getAbsolutePath();
-    }
-
-    private boolean hasNewExtractedFiles(File dir, long startTime) {
-        if (dir == null || !dir.exists()) {
-            return false;
-        }
-        long threshold = startTime - 2000L;
-        ArrayDeque<File> stack = new ArrayDeque<>();
-        stack.push(dir);
-        while (!stack.isEmpty()) {
-            File current = stack.pop();
-            File[] files = current.listFiles();
-            if (files == null) {
-                continue;
-            }
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    stack.push(file);
-                } else if (file.length() > 0 && file.lastModified() >= threshold) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private void renameBinToImgInDir(File dir) {
-        if (dir == null || !dir.exists() || !dir.isDirectory()) {
-            return;
-        }
-        ArrayDeque<File> stack = new ArrayDeque<>();
-        stack.push(dir);
-        while (!stack.isEmpty()) {
-            File current = stack.pop();
-            File[] files = current.listFiles();
-            if (files == null) {
-                continue;
-            }
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    stack.push(file);
-                    continue;
-                }
-                String name = file.getName();
-                String lower = name.toLowerCase(Locale.US);
-                if (lower.endsWith(".bin")) {
-                    String targetName = ensureImgExtension(name);
-                    File target = new File(file.getParentFile(), targetName);
-                    if (target.exists() && target.lastModified() <= file.lastModified()) {
-                        target.delete();
-                    }
-                    renameFile(file, target);
-                }
-            }
-        }
     }
 
     private boolean renameFile(File source, File target) {
@@ -10190,17 +9518,6 @@ public class FlashEngine {
         }
     }
 
-    private boolean appendImageFileToOutput(File src, OutputStream out) {
-        if (src == null || out == null) {
-            return false;
-        }
-        try {
-            return appendStreamToOutput(new FileInputStream(src), out);
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
     // 把一个镜像流（可为 root cat 流）追加写入 out，自动识别并展开 sparse。
     private boolean appendStreamToOutput(InputStream rawIn, OutputStream out) {
         if (rawIn == null || out == null) {
@@ -10362,19 +9679,6 @@ public class FlashEngine {
             return a.getCanonicalFile().equals(b.getCanonicalFile());
         } catch (IOException e) {
             return a.equals(b);
-        }
-    }
-
-    private boolean isUnderDir(File parent, File child) {
-        if (parent == null || child == null) {
-            return false;
-        }
-        try {
-            String parentPath = parent.getCanonicalPath();
-            String childPath = child.getCanonicalPath();
-            return childPath.startsWith(parentPath + File.separator);
-        } catch (IOException e) {
-            return false;
         }
     }
 
@@ -11463,8 +10767,6 @@ public class FlashEngine {
         return file;
     }
 
-
-
     private File copyUriToDir(Uri uri, File dir, String fallbackName) throws IOException {
         String name = getDisplayName(uri);
         if (name == null || name.trim().isEmpty()) {
@@ -11538,9 +10840,6 @@ public class FlashEngine {
         return name != null ? name : uri.path;
     }
 
-
-
-
     // 输入目录(uri.path)下的镜像拷贝到 destDir(基于普通文件系统)。
     private int copyImagesFromTree(Uri uri, File destDir) throws IOException {
         File root = new File(uri.path);
@@ -11574,7 +10873,6 @@ public class FlashEngine {
         }
         return copied;
     }
-
 
     private void exportImagesToTree(File runDir, Uri uri) throws IOException {
         File root = new File(uri.path);
@@ -12244,7 +11542,6 @@ public class FlashEngine {
         return false;
     }
 
-
     private void emitSummaryLines(String chunk, StringBuilder lineBuffer) {
         if (lineBuffer == null || chunk == null || chunk.isEmpty()) {
             return;
@@ -12447,17 +11744,6 @@ public class FlashEngine {
         return "执行失败";
     }
 
-    private boolean hasVipAuthHandshake(String output) {
-        if (output == null || output.trim().isEmpty()) {
-            return false;
-        }
-        String lower = output.toLowerCase(Locale.US);
-        return lower.contains("waiting for programmer")
-                || lower.contains("firehose already active")
-                || lower.contains("firehose")
-                || lower.contains("sahara");
-    }
-
     private boolean outputHasFailure(String output) {
         return outputHasFailureInternal(output, true);
     }
@@ -12557,63 +11843,6 @@ public class FlashEngine {
         return result != null && result.exitCode == 0 && !outputHasFailure(result.output);
     }
 
-    private String summarizeFirehoseLine(String line) {
-        if (line == null) {
-            return null;
-        }
-        String lower = line.toLowerCase(Locale.US);
-        if (lower.contains("value=\"ack\"")) {
-            if (lower.contains("rawmode=\"true\"")) {
-                return null;
-            }
-            return formatFirehoseResult(true);
-        }
-        if (lower.contains("value=\"nak\"")) {
-            return formatFirehoseResult(false);
-        }
-        if (lower.contains("<configure")) {
-            lastFirehoseStep = normalizeFirehoseStep("configure");
-            return null;
-        }
-        if (lower.contains("<read")) {
-            lastFirehoseStep = normalizeFirehoseStep("read");
-            return null;
-        }
-        if (lower.contains("<program")) {
-            lastFirehoseStep = normalizeFirehoseStep("program");
-            return null;
-        }
-        if (lower.contains("<erase")) {
-            lastFirehoseStep = normalizeFirehoseStep("erase");
-            return null;
-        }
-        if (lower.contains("<power")) {
-            lastFirehoseStep = normalizeFirehoseStep("power");
-            return null;
-        }
-        if (lower.contains("<nop")) {
-            lastFirehoseStep = normalizeFirehoseStep("nop");
-            return null;
-        }
-        if (lower.contains("<getstorageinfo")) {
-            lastFirehoseStep = normalizeFirehoseStep("getstorageinfo");
-            return null;
-        }
-        if (lower.contains("<setbootablestoragedrive")) {
-            lastFirehoseStep = normalizeFirehoseStep("setbootablestoragedrive");
-            return null;
-        }
-        if (lower.contains("<getactiveslot")) {
-            lastFirehoseStep = normalizeFirehoseStep("getactiveslot");
-            return null;
-        }
-        if (lower.contains("<ufs")) {
-            lastFirehoseStep = normalizeFirehoseStep("ufs");
-            return null;
-        }
-        return null;
-    }
-
     private String summarizeLogLine(String line) {
         if (line == null) {
             return null;
@@ -12677,7 +11906,6 @@ public class FlashEngine {
                 return step;
         }
     }
-
 
     private String joinArgs(List<String> args) {
         StringBuilder sb = new StringBuilder();
@@ -12950,30 +12178,6 @@ public class FlashEngine {
         return reason;
     }
 
-    private boolean isPermissionDeniedReason(String reason) {
-        if (reason == null) {
-            return false;
-        }
-        String lower = reason.toLowerCase(Locale.US);
-        return lower.contains("权限")
-                || lower.contains("permission")
-                || lower.contains("not allowed")
-                || lower.contains("不允许");
-    }
-
-    private String appendSkipReason(String reason) {
-        String text = reason == null ? "" : reason.trim();
-        if (text.isEmpty()) {
-            text = "权限不足";
-        }
-        if (text.contains("跳过")) {
-            return text;
-        }
-        return text + "，已跳过";
-    }
-
-
-
     private String sanitizeLogLine(String message) {
         if (message == null) {
             return "";
@@ -13011,7 +12215,6 @@ public class FlashEngine {
         }
         cb.onLog(null);
     }
-
 
     private void startProgress(String label) {
         stopLogProgressMonitor();
@@ -13122,50 +12325,6 @@ public class FlashEngine {
         int value = success ? 100 : 0;
         String label = success ? "完成" : "失败";
         setProgressValue(value, label);
-    }
-
-    private void updateProgressFromLine(String line) {
-        if (line == null) {
-            return;
-        }
-        Matcher matcher = PERCENT_PATTERN.matcher(line);
-        if (matcher.find()) {
-            try {
-                float valueFloat = Float.parseFloat(matcher.group(1));
-                int value = Math.round(valueFloat);
-                if (value >= 0 && value <= 100) {
-                    setProgressValue(value, value + "%");
-                    return;
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        String lower = line.toLowerCase(Locale.US);
-        if (lower.contains("progress") || lower.contains("percentage")) {
-            String digits = line.replaceAll("[^0-9]", "");
-            if (!digits.isEmpty()) {
-                try {
-                    int value = Integer.parseInt(digits);
-                    if (value >= 0 && value <= 100) {
-                        setProgressValue(value, value + "%");
-                        return;
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-        Matcher sectorMatcher = SECTOR_PROGRESS_PATTERN.matcher(line);
-        if (sectorMatcher.find()) {
-            try {
-                long current = Long.parseLong(sectorMatcher.group(1), 16);
-                long total = Long.parseLong(sectorMatcher.group(2), 16);
-                if (total > 0) {
-                    int value = (int) Math.min(100, Math.max(0, (current * 100L) / total));
-                    setProgressValue(value, value + "%");
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
     }
 
     private int extractProgressFromText(String text) {
@@ -13306,7 +12465,6 @@ public class FlashEngine {
             }
         }
     }
-
 
     private static class BuiltinAuthFiles {
         final String devprg;
@@ -13527,52 +12685,6 @@ public class FlashEngine {
         }
     }
 
-    private void logUsbSnapshot(String label, PortId target) {
-        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        if (manager == null) {
-            logUsb("USB snapshot (" + label + "): UsbManager unavailable");
-            return;
-        }
-        Map<String, UsbDevice> devices = manager.getDeviceList();
-        logUsb("USB snapshot (" + label + "): count=" + devices.size());
-        for (UsbDevice device : devices.values()) {
-            boolean isTarget = isTargetUsbDevice(device, target);
-            String prefix = isTarget ? "target " : "";
-            String vidPid = String.format(Locale.US, "%04x:%04x",
-                    device.getVendorId(), device.getProductId());
-            logUsb("USB " + prefix + "devId=" + device.getDeviceId()
-                    + " name=" + device.getDeviceName()
-                    + " vid:pid=" + vidPid
-                    + " class=" + device.getDeviceClass()
-                    + "/" + device.getDeviceSubclass()
-                    + "/" + device.getDeviceProtocol()
-                    + " iface=" + device.getInterfaceCount()
-                    + " perm=" + manager.hasPermission(device));
-            if (isTarget) {
-                logUsb("USB strings mfg=" + safeUsbString(() -> device.getManufacturerName())
-                        + " product=" + safeUsbString(() -> device.getProductName())
-                        + " serial=" + safeUsbString(() -> device.getSerialNumber()));
-                for (int i = 0; i < device.getInterfaceCount(); i++) {
-                    UsbInterface intf = device.getInterface(i);
-                    logUsb("  if#=" + intf.getId()
-                            + " cls=" + intf.getInterfaceClass()
-                            + " sub=" + intf.getInterfaceSubclass()
-                            + " proto=" + intf.getInterfaceProtocol()
-                            + " alt=" + intf.getAlternateSetting()
-                            + " eps=" + intf.getEndpointCount());
-                    for (int j = 0; j < intf.getEndpointCount(); j++) {
-                        UsbEndpoint ep = intf.getEndpoint(j);
-                        logUsb("    ep=0x" + String.format(Locale.US, "%02x", ep.getAddress())
-                                + " dir=" + usbDirName(ep.getDirection())
-                                + " type=" + usbTypeName(ep.getType())
-                                + " maxPkt=" + ep.getMaxPacketSize()
-                                + " interval=" + ep.getInterval());
-                    }
-                }
-            }
-        }
-    }
-
     // 把当前所有 USB 设备的接口/端点布局写入运行日志（appendWorkLog → run.log），
     // 用于排查 qdl 选错接口/端点导致 bulk 双向静默（小米 SDM845 等）。
     private void logUsbDescriptorToWork(File runDir) {
@@ -13608,75 +12720,6 @@ public class FlashEngine {
                 }
                 appendWorkLog(runDir, sb.toString());
             }
-        }
-    }
-
-    private void logUsbPathCandidates(String label, PortId portId) {
-        if (portId == null) {
-            logUsb("USB path candidates (" + label + "): portId unavailable");
-            return;
-        }
-        String fromManager = detectUsbPathFromUsbManager(portId);
-        String fromSys = detectUsbBusPath(portId.vid, portId.pid);
-        String fromSysRoot = detectUsbBusPathWithRoot(portId.vid, portId.pid);
-        String fromDebug = detectUsbPathFromDebug(portId.vid, portId.pid);
-        logUsb("USB path candidates (" + label + "): usbManager=" + nullToDash(fromManager)
-                + " sysfs=" + nullToDash(fromSys)
-                + " sysfs(root)=" + nullToDash(fromSysRoot)
-                + " debugfs=" + nullToDash(fromDebug));
-    }
-
-    private void logDebugUsbMatch(String label, PortId portId) {
-        if (portId == null) {
-            logUsb("USB debugfs (" + label + "): portId unavailable");
-            return;
-        }
-        String content = readDebugUsbDevices();
-        if (content == null || content.trim().isEmpty()) {
-            logUsb("USB debugfs (" + label + "): empty");
-            return;
-        }
-        String targetVid = normalizeHexId(portId.vid);
-        String targetPid = normalizeHexId(portId.pid);
-        String bus = null;
-        String dev = null;
-        String foundVid = null;
-        String foundPid = null;
-        boolean matched = false;
-        String[] lines = content.split("\n");
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) {
-                if (targetVid != null && targetPid != null
-                        && targetVid.equalsIgnoreCase(foundVid)
-                        && targetPid.equalsIgnoreCase(foundPid)
-                        && bus != null && dev != null) {
-                    logUsb("USB debugfs (" + label + "): bus=" + bus + " dev=" + dev
-                            + " vid:pid=" + foundVid + ":" + foundPid);
-                    matched = true;
-                }
-                bus = null;
-                dev = null;
-                foundVid = null;
-                foundPid = null;
-                continue;
-            }
-            if (trimmed.startsWith("T:")) {
-                Matcher matcher = DEBUG_T_PATTERN.matcher(trimmed);
-                if (matcher.matches()) {
-                    bus = matcher.group(1);
-                    dev = matcher.group(2);
-                }
-            } else if (trimmed.startsWith("P:")) {
-                Matcher matcher = DEBUG_P_PATTERN.matcher(trimmed);
-                if (matcher.matches()) {
-                    foundVid = normalizeHexId(matcher.group(1));
-                    foundPid = normalizeHexId(matcher.group(2));
-                }
-            }
-        }
-        if (!matched) {
-            logUsb("USB debugfs (" + label + "): no match");
         }
     }
 
@@ -13730,18 +12773,6 @@ public class FlashEngine {
 
     private String nullToDash(String value) {
         return value == null || value.isEmpty() ? "-" : value;
-    }
-
-    private void initUsbTrace(File runDir) {
-        if (runDir == null) {
-            return;
-        }
-        usbTraceFile = new File(runDir, "usb_trace.txt");
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(usbTraceFile, false))) {
-            writer.write("USB trace log\n");
-            writer.write("runDir=" + runDir.getAbsolutePath() + "\n");
-        } catch (IOException ignored) {
-        }
     }
 
     private void logUsb(String message) {

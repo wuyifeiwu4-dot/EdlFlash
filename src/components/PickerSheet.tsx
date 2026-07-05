@@ -8,14 +8,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import {useTheme} from '../theme/theme';
+import {useSheetTransition} from './useSheetTransition';
 import {Txt} from './Txt';
 import {Pressy} from './Pressy';
 
@@ -61,38 +56,19 @@ export function PickerSheet({
   onSelect: (id: string) => void;
   searchable?: boolean;
 }) {
-  const {c, radius, space, spring, hairline} = useTheme();
+  const {c, radius, space, hairline} = useTheme();
   const {height} = useWindowDimensions();
   const sheetH = Math.min(height * 0.7, 560);
 
-  // 进出场状态机：mounted 控制 Modal 挂载，退场动画跑完才卸载
-  const [mounted, setMounted] = useState(visible);
   const [query, setQuery] = useState('');
-  const translateY = useSharedValue(sheetH);
-  const backdrop = useSharedValue(0);
+  const {mounted, sheetStyle, backdropStyle} = useSheetTransition(visible, sheetH);
 
-  const unmount = React.useCallback(() => setMounted(false), []);
-
+  // 打开时清空上次的搜索词
   React.useEffect(() => {
     if (visible) {
-      setMounted(true);
       setQuery('');
-      translateY.value = withSpring(0, spring.sheet);
-      backdrop.value = withTiming(1, {duration: 220});
-    } else if (mounted) {
-      backdrop.value = withTiming(0, {duration: 180});
-      translateY.value = withTiming(sheetH, {duration: 220}, finished => {
-        if (finished) {
-          runOnJS(unmount)();
-        }
-      });
     }
-  }, [visible, mounted, sheetH, spring.sheet, translateY, backdrop, unmount]);
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{translateY: translateY.value}],
-  }));
-  const backdropStyle = useAnimatedStyle(() => ({opacity: backdrop.value}));
+  }, [visible]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

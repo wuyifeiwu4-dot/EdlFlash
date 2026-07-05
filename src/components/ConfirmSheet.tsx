@@ -7,9 +7,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import {useTheme} from '../theme/theme';
+import {useSheetTransition} from './useSheetTransition';
 import {Txt} from './Txt';
 import {Pressy} from './Pressy';
 
@@ -41,35 +41,10 @@ export function ConfirmSheet({
   neutralLabel?: string;
   onNeutral?: () => void;
 }) {
-  const {c, radius, space, spring, hairline} = useTheme();
+  const {c, radius, space, hairline} = useTheme();
   const tint = destructive ? c.destructive : c.accent;
 
-  // 进出场状态机：mounted 控制 Modal 挂载，退场动画跑完才卸载
-  const [mounted, setMounted] = useState(visible);
-  const translateY = useSharedValue(400);
-  const backdrop = useSharedValue(0);
-
-  const unmount = React.useCallback(() => setMounted(false), []);
-
-  React.useEffect(() => {
-    if (visible) {
-      setMounted(true);
-      translateY.value = withSpring(0, spring.sheet);
-      backdrop.value = withTiming(1, {duration: 220});
-    } else if (mounted) {
-      backdrop.value = withTiming(0, {duration: 180});
-      translateY.value = withTiming(400, {duration: 220}, finished => {
-        if (finished) {
-          runOnJS(unmount)();
-        }
-      });
-    }
-  }, [visible, mounted, spring.sheet, translateY, backdrop, unmount]);
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{translateY: translateY.value}],
-  }));
-  const backdropStyle = useAnimatedStyle(() => ({opacity: backdrop.value}));
+  const {mounted, sheetStyle, backdropStyle} = useSheetTransition(visible, 400);
 
   if (!mounted) {
     return null;
