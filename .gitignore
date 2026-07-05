@@ -98,3 +98,10 @@ __pycache__/
 # 工具缓存
 .serena/
 .claude/
+
+# 签名密钥（绝不入库）
+*.jks
+keystore.properties
+
+# qdl 核心的本地构建产物（源码在 third_party/，二进制按需编译）
+/third_party/build/
