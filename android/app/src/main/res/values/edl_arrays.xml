@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="language_entries">
+        <item>中文（默认）</item>
+        <item>跟随系统</item>
+    </string-array>
+    <string-array name="language_values">
+        <item>zh-CN</item>
+        <item>system</item>
+    </string-array>
+    <string-array name="builtin_vendor_entries">
+        <item>欧加</item>
+    </string-array>
+</resources>

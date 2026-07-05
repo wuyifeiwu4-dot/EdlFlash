@@ -1,0 +1,25 @@
+{
+  "backend_url": {
+    "description": "统一后台地址(不含末尾斜杠)",
+    "type": "string",
+    "default": "http://202.189.5.184:8787",
+    "hint": "EdlFlash 统一后台 backend/ 的访问地址"
+  },
+  "admin_token": {
+    "description": "后台管理 token",
+    "type": "string",
+    "default": "",
+    "hint": "服务端启动日志里打印的 admin token"
+  },
+  "group_id": {
+    "description": "限定响应的 QQ 群号(留空=所有群)",
+    "type": "string",
+    "default": "1077185480"
+  },
+  "admins": {
+    "description": "机器人管理员 QQ(逗号分隔，可无限领卡，绕过每日限领)",
+    "type": "string",
+    "default": "2481849298",
+    "hint": "这里是插件配置的管理员，与 QQ 群管理无关"
+  }
+}

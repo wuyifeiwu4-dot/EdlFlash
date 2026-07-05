@@ -1,0 +1,291 @@
+import com.android.build.api.instrumentation.InstrumentationScope
+import com.android.build.api.instrumentation.FramesComputationMode
+
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ * By default you don't need to apply any configuration, just uncomment the lines you need.
+ */
+react {
+    /* Folders */
+    //   The root of your project, i.e. where "package.json" lives. Default is '../..'
+    // root = file("../../")
+    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+    // reactNativeDir = file("../../node_modules/react-native")
+    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
+    // codegenDir = file("../../node_modules/@react-native/codegen")
+    //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
+    // cliFile = file("../../node_modules/react-native/cli.js")
+
+    /* Variants */
+    //   The list of variants to that are debuggable. For those we're going to
+    //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
+    //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
+    // debuggableVariants = ["liteDebug", "prodDebug"]
+
+    /* Bundling */
+    //   A list containing the node command and its flags. Default is just 'node'.
+    // nodeExecutableAndArgs = ["node"]
+    //
+    //   The command to run when bundling. By default is 'bundle'
+    // bundleCommand = "ram-bundle"
+    //
+    //   The path to the CLI configuration file. Default is empty.
+    // bundleConfig = file(../rn-cli.config.js)
+    //
+    //   The name of the generated asset file containing your JS bundle
+    // bundleAssetName = "MyApplication.android.bundle"
+    //
+    //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
+    // entryFile = file("../js/MyApplication.android.js")
+    //
+    //   A list of extra flags to pass to the 'bundle' commands.
+    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
+    // extraPackagerArgs = []
+
+    /* Hermes Commands */
+    //   The hermes compiler command to run. By default it is 'hermesc'
+    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    //
+    //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
+    // hermesFlags = ["-O", "-output-source-map"]
+
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+}
+
+/**
+ * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ */
+def enableProguardInReleaseBuilds = true
+
+/**
+ * The preferred build flavor of JavaScriptCore (JSC)
+ *
+ * For example, to use the international variant, you can use:
+ * `def jscFlavor = 'org.webkit:android-jsc-intl:+'`
+ *
+ * The international variant includes ICU i18n library and necessary data
+ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
+ * give correct results when using with locales other than en-US. Note that
+ * this variant is about 6MiB larger per architecture than default.
+ */
+def jscFlavor = 'org.webkit:android-jsc:+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.edlflash"
+
+    // 加固：编译 libedlsec.so（签名校验/反调试/Frida/抓包检测/mini-VM 门控核心）
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    // 直接引用原工程的 assets(edl_bundle + loader_builtin)，构建时取原文件，不在本工程复制
+    // 加存在性校验：AGP 对缺失的 srcDir 静默跳过，会打出无 edl_bundle/loader_builtin 的空壳 APK，
+    // 装机后所有 EDL 命令因缺 qdl 失败且无提示，故构建期直接 fail-fast。
+    sourceSets {
+        main {
+            def edlAssets = file("/root/edl_flash_app/app/src/main/assets")
+            if (!edlAssets.exists()) {
+                throw new GradleException("原生 assets 缺失: ${edlAssets} —— RN 依赖其 edl_bundle/loader_builtin，构建中止")
+            }
+            assets.srcDirs += [edlAssets]
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.edlflash"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        // 只支持 arm64（EDL 工具均为 aarch64），避免打入其它 ABI 的死重原生库
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_static"
+            }
+        }
+    }
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            externalNativeBuild {
+                cmake {
+                    arguments "-DEDLSEC_GEN_DIR=${layout.buildDirectory.dir('generated/edlsec/debug').get().asFile}"
+                }
+            }
+        }
+        release {
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            externalNativeBuild {
+                cmake {
+                    arguments "-DEDLSEC_GEN_DIR=${layout.buildDirectory.dir('generated/edlsec/release').get().asFile}"
+                }
+            }
+        }
+    }
+}
+
+// 加固：编译期对全 DEX(本模块 + 所有依赖)做字符串加密；控制流混淆限 com.edlflash.** 自有代码。
+// ALL 作用域=连同 RN/AndroidX/Kotlin/三方库一起插桩(用户要求"全dex都要混淆")；
+// COMPUTE_FRAMES 让 AGP 重算栈帧；解密器自身(StringVault/EdlState/SecurityCore)由工厂排除防成环。
+androidComponents {
+    onVariants(selector().all(), { variant ->
+        variant.instrumentation.transformClassesWith(
+            com.edlflash.buildtools.EdlsecAsmFactory.class,
+            InstrumentationScope.ALL
+        ) { }
+        variant.instrumentation.setAsmFramesComputationMode(
+            FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS
+        )
+    })
+}
+
+dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+    // SAF 路径还原仅用 framework 的 DocumentsContract（不复制内容、root 直读真实路径），无需 documentfile 库
+}
+
+// ============================================================================
+// 加固：构建期生成 src/main/cpp 的 edlsec_gen.h
+//   读取本 variant 实际签名证书 → SHA-256 → 注入(遮罩后) + 用其 KDF 派生密钥加密
+//   license secret 成 blob。native 运行期用"实际"证书 hash 解密：签名一致才能解出
+//   正确 secret，否则后台响应 HMAC 验签必失败（重打包即不可逆地破坏卡密校验）。
+//   KDF/流密码与 android/app/src/main/cpp/edlsec.cpp 逐字节一致，改一处务必同步另一处。
+// ============================================================================
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.cert.X509Certificate
+
+def edlsecSha256 = { byte[] b -> MessageDigest.getInstance("SHA-256").digest(b) }
+def edlsecAscii = { String s -> s.getBytes("US-ASCII") }
+def edlsecLe32 = { int v -> [v, v >>> 8, v >>> 16, v >>> 24].collect { (byte) (it & 0xff) } as byte[] }
+def edlsecCat = { byte[]... xs ->
+    def o = new ByteArrayOutputStream(); xs.each { o.write(it) }; o.toByteArray()
+}
+def edlsecDeriveKey = { byte[] cert ->
+    byte[] st = edlsecSha256(edlsecCat(edlsecAscii("edlsec-kdf-v1"), cert))
+    for (int i = 1; i <= 4096; i++) {
+        st = edlsecSha256(edlsecCat(st, cert, edlsecLe32(i), edlsecAscii("license")))
+    }
+    st
+}
+def edlsecCrypt = { byte[] plain, byte[] key ->
+    byte[] out = new byte[plain.length]; int off = 0; int ctr = 0
+    while (off < plain.length) {
+        byte[] blk = edlsecSha256(edlsecCat(key, edlsecAscii("edlsec-stream-v1"), edlsecLe32(ctr++)))
+        for (int i = 0; i < blk.length && off < plain.length; i++, off++) {
+            out[off] = (byte) (plain[off] ^ blk[i])
+        }
+    }
+    out
+}
+def edlsecMask = [0x31, 0x5a, 0xc7, 0x09, 0x44, 0x8e, 0x1d, 0xa2,
+                  0xe0, 0x6b, 0x93, 0x17, 0x5c, 0xd4, 0x28, 0xb9,
+                  0x7f, 0x02, 0xaa, 0x61, 0x3d, 0xce, 0x84, 0x10,
+                  0x59, 0xf1, 0x26, 0x9b, 0x0c, 0x72, 0xdd, 0x48].collect { (byte) it } as byte[]
+def edlsecCArray = { byte[] b -> b.collect { String.format("0x%02x", it & 0xff) }.join(", ") }
+def edlsecSecret = (project.findProperty("edlsecLicenseSecret") ?: "edlflash-license-7f3a9c21d8e64b05").toString()
+
+android.applicationVariants.all { variant ->
+    def sc = variant.signingConfig ?: android.signingConfigs.findByName("debug")
+    def storeFile = sc?.storeFile
+    def storePass = sc?.storePassword
+    def keyAlias = sc?.keyAlias
+    def storeType = sc?.storeType
+    def variantName = variant.name
+    def cap = variantName.capitalize()
+    def outFile = layout.buildDirectory.file("generated/edlsec/${variantName}/edlsec_gen.h").get().asFile
+
+    def gen = tasks.register("generate${cap}EdlSecHeader") {
+        if (storeFile != null) inputs.file(storeFile)
+        // 不把明文 secret 作为 task input（避免进 build cache/scan）；用其 SHA-256 指纹做增量判定。
+        inputs.property("secretDigest", edlsecSha256(edlsecSecret.getBytes("UTF-8")).encodeHex().toString())
+        inputs.property("alias", keyAlias ?: "")
+        outputs.file(outFile)
+        doLast {
+            if (storeFile == null || !storeFile.exists()) {
+                throw new GradleException("签名 keystore 缺失，无法注入 edlsec 证书 hash: ${storeFile}")
+            }
+            if (edlsecSecret.getBytes("UTF-8").length > 120) {
+                throw new GradleException("edlsecLicenseSecret 过长(>120 字节)，超过 native secret 缓冲上限")
+            }
+            char[] pass = (storePass ?: "").toCharArray()
+            def ks = null
+            for (String t : [storeType, "PKCS12", "JKS", KeyStore.getDefaultType()].findAll { it }) {
+                try {
+                    ks = KeyStore.getInstance(t)
+                    storeFile.withInputStream { ks.load(it, pass) }
+                    break
+                } catch (Exception ignored) {
+                    ks = null
+                }
+            }
+            if (ks == null) throw new GradleException("无法加载 keystore: ${storeFile}")
+            def cert = ks.getCertificate(keyAlias)
+            if (!(cert instanceof X509Certificate)) {
+                throw new GradleException("别名 ${keyAlias} 无 X.509 证书")
+            }
+            byte[] certHash = edlsecSha256(cert.getEncoded())
+            byte[] key = edlsecDeriveKey(certHash)
+            byte[] blob = edlsecCrypt(edlsecSecret.getBytes("UTF-8"), key)
+            byte[] masked = new byte[32]
+            for (int i = 0; i < 32; i++) masked[i] = (byte) (certHash[i] ^ edlsecMask[i])
+            outFile.parentFile.mkdirs()
+            outFile.text = """#ifndef EDLSEC_GEN_H
+#define EDLSEC_GEN_H
+#include <stdint.h>
+#define EDLSEC_KDF_ROUNDS 4096u
+static const uint8_t EDLSEC_EXPECTED_CERT_SHA256_MASKED[32] = { ${edlsecCArray(masked)} };
+static const uint8_t EDLSEC_LICENSE_BLOB[${blob.length}] = { ${edlsecCArray(blob)} };
+static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
+#endif
+"""
+            println "edlsec[${variantName}]: 证书SHA256=${certHash.collect { String.format('%02x', it & 0xff) }.join()} → ${outFile}"
+        }
+    }
+
+    // 双保险串联：
+    //  1) pre<Variant>Build 锚点——保证生成早于整个变体管线（含 native 编译）。
+    //  2) 宽匹配 CMake 任务——release 的 native 构建类型名为 RelWithDebInfo（非变体名），
+    //     故同时按 native 构建类型挂依赖。生成头在 buildCMake 编译前就绪即可（见 CMakeLists）。
+    def nativeType = variant.buildType.debuggable ? "Debug" : "RelWithDebInfo"
+    tasks.matching {
+        it.name == "externalNativeBuild${cap}" ||
+        it.name.startsWith("configureCMake${nativeType}") ||
+        it.name.startsWith("buildCMake${nativeType}")
+    }.configureEach { dependsOn(gen) }
+    tasks.matching { it.name == "pre${cap}Build" }.configureEach { dependsOn(gen) }
+}

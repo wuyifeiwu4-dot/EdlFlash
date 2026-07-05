@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EdlFlash 统一后台</title>
+<style>
+  :root {
+    --bg-top:#0E141B; --bg-bot:#0B1216; --s1:#161C24; --s2:#1B222C; --sep:rgba(255,255,255,.08);
+    --l1:#E9ECF2; --l2:#9AA3B2; --l3:#5C6678; --acc:#0A84FF; --acc2:#2A93FF;
+    --ok:#30D158; --warn:#FFD60A; --danger:#FF453A; --r:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--l1);background:linear-gradient(160deg,var(--bg-top),var(--bg-bot));min-height:100vh;padding:24px}
+  .wrap{max-width:880px;margin:0 auto}
+  h1{font-size:22px;margin:4px 0}
+  .sub{color:var(--l2);font-size:13px;margin-bottom:18px}
+  .card{background:var(--s1);border:1px solid var(--sep);border-radius:var(--r);padding:18px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--l2);margin:12px 0 6px}
+  label:first-child{margin-top:0}
+  input,textarea,select{width:100%;background:var(--s2);border:1px solid var(--sep);border-radius:10px;color:var(--l1);
+    padding:11px 13px;font-size:15px;outline:none;font-family:inherit}
+  input:focus,textarea:focus,select:focus{border-color:var(--acc)}
+  textarea{min-height:120px;resize:vertical;line-height:1.5}
+  .btn{border:none;border-radius:11px;padding:11px 16px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;
+    background:linear-gradient(135deg,var(--acc2),var(--acc))}
+  .btn:active{opacity:.85}.btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--acc);font-weight:600;padding:8px 10px}
+  .btn.danger{background:linear-gradient(135deg,#FF6B5E,var(--danger))}
+  .btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .row.end{justify-content:flex-end}.grow{flex:1}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:9px 16px;border-radius:999px;background:var(--s1);border:1px solid var(--sep);color:var(--l2);cursor:pointer;font-weight:600;font-size:14px}
+  .tab.on{background:var(--acc);color:#fff;border-color:transparent}
+  .msg{font-size:13px;margin-top:10px;min-height:16px}.msg.err{color:var(--danger)}.msg.ok{color:var(--ok)}
+  .muted{color:var(--l3);font-size:12px}
+  .hidden{display:none!important}
+  .stat{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .stat .box{background:var(--s2);border-radius:10px;padding:10px 14px;min-width:84px}
+  .stat .n{font-size:20px;font-weight:700}.stat .t{font-size:12px;color:var(--l2)}
+  .switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .track{width:50px;height:30px;border-radius:999px;background:var(--s2);position:relative;border:1px solid var(--sep);transition:background .2s}
+  .track.on{background:var(--ok);border-color:transparent}
+  .knob{position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:50%;background:#fff;transition:left .2s}
+  .track.on .knob{left:22px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--sep);vertical-align:middle}
+  th{color:var(--l2);font-weight:600}
+  .code{font-family:ui-monospace,Menlo,monospace;color:var(--l1)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .pill.time{background:rgba(10,132,255,.18);color:var(--acc2)}
+  .pill.count{background:rgba(255,214,10,.18);color:var(--warn)}
+  .pill.off{background:rgba(255,69,58,.18);color:var(--danger)}
+  .gen-out{background:var(--s2);border-radius:10px;padding:10px;margin-top:10px;font-family:ui-monospace,monospace;font-size:13px;white-space:pre-wrap;word-break:break-all}
+  .scroll{overflow:auto;max-height:60vh}
+  a.link{color:var(--acc);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EdlFlash 统一后台</h1>
+  <div class="sub">卡密 + 公告 统一管理。无账号密码，使用启动时打印的管理 token 登录。</div>
+
+  <!-- 登录 -->
+  <div id="loginCard" class="card">
+    <label>管理 token（服务端启动日志中的 admin token）</label>
+    <div class="row">
+      <input id="tok" class="grow" type="password" placeholder="粘贴管理 token" />
+      <button id="loginBtn" class="btn">进入</button>
+    </div>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+
+  <!-- 主体 -->
+  <div id="main" class="hidden">
+    <div class="row" style="justify-content:space-between">
+      <div class="stat" id="stat"></div>
+      <button id="logoutBtn" class="btn ghost">退出</button>
+    </div>
+    <div class="tabs">
+      <div class="tab on" data-tab="cards">卡密</div>
+      <div class="tab" data-tab="announce">公告</div>
+    </div>
+
+    <!-- 卡密 -->
+    <div id="tabCards">
+      <div class="card">
+        <div class="row">
+          <div style="min-width:120px">
+            <label>类型</label>
+            <select id="cType"><option value="time">时卡(按天)</option><option value="count">次卡(按次)</option></select>
+          </div>
+          <div id="daysWrap" style="min-width:110px">
+            <label>有效天数</label>
+            <input id="cDays" type="number" min="1" value="1" />
+          </div>
+          <div id="countWrap" class="hidden" style="min-width:110px">
+            <label>可登录次数</label>
+            <input id="cCount" type="number" min="1" value="10" />
+          </div>
+          <div style="min-width:90px">
+            <label>数量</label>
+            <input id="cQty" type="number" min="1" max="100" value="1" />
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+            <label class="switch" style="margin:0">
+              <span class="track" id="cUnbind"><span class="knob"></span></span>
+              <span>不可解绑</span>
+            </label>
+          </div>
+        </div>
+        <label>备注(可空)</label>
+        <input id="cNote" type="text" placeholder="如：活动赠送" />
+        <div class="row end" style="margin-top:14px"><button id="genBtn" class="btn">生成卡密</button></div>
+        <div id="genOut" class="gen-out hidden"></div>
+        <div id="cardsMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <strong>卡密列表</strong>
+          <button id="refreshBtn" class="btn ghost">刷新</button>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>卡密</th><th>类型</th><th>状态</th><th>绑定/用量</th><th>来源</th><th>操作</th></tr></thead>
+            <tbody id="cardRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 公告 -->
+    <div id="tabAnnounce" class="hidden">
+      <div class="card">
+        <div class="switch" id="aSwitch"><span class="track" id="aTrack"><span class="knob"></span></span><span id="aText">已关闭</span></div>
+        <label>标题(可空)</label>
+        <input id="aTitle" type="text" maxlength="200" placeholder="如：版本更新通知" />
+        <label>公告内容</label>
+        <textarea id="aContent" maxlength="8000" placeholder="支持多行；App 启动弹窗展示，关闭或空则不弹"></textarea>
+        <div class="row end" style="margin-top:14px">
+          <button id="aClear" class="btn danger">清空并关闭</button>
+          <button id="aSave" class="btn">保存</button>
+        </div>
+        <div id="aMsg" class="msg"></div>
+        <div id="aUpdated" class="muted"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var TK='edlflash_admin_token';
+function tok(){return localStorage.getItem(TK)||''}
+function setTok(t){t?localStorage.setItem(TK,t):localStorage.removeItem(TK)}
+var el=function(id){return document.getElementById(id)};
+var ann={enabled:false,title:'',content:'',updatedAt:0};
+
+async function api(path,opts){
+  opts=opts||{};opts.headers=Object.assign({'Content-Type':'application/json','X-Admin-Token':tok()},opts.headers||{});
+  var r=await fetch(path,opts);var j={};try{j=await r.json()}catch(e){}
+  return {status:r.status,body:j};
+}
+
+function showLogin(){el('loginCard').classList.remove('hidden');el('main').classList.add('hidden')}
+function showMain(){el('loginCard').classList.add('hidden');el('main').classList.remove('hidden')}
+
+el('loginBtn').onclick=async function(){
+  el('loginMsg').textContent='';var t=el('tok').value.trim();
+  if(!t){el('loginMsg').className='msg err';el('loginMsg').textContent='请输入 token';return}
+  setTok(t);
+  var r=await api('/api/admin/overview');
+  if(r.status===200&&r.body.ok){el('tok').value='';showMain();renderOverview(r.body);loadCards();loadAnnounce()}
+  else{setTok('');el('loginMsg').className='msg err';el('loginMsg').textContent=(r.body&&r.body.error)||'token 无效'}
+};
+el('tok').addEventListener('keydown',function(e){if(e.key==='Enter')el('loginBtn').click()});
+el('logoutBtn').onclick=function(){setTok('');showLogin()};
+
+// tabs
+document.querySelectorAll('.tab').forEach(function(t){t.onclick=function(){
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on')});t.classList.add('on');
+  var name=t.getAttribute('data-tab');
+  el('tabCards').classList.toggle('hidden',name!=='cards');
+  el('tabAnnounce').classList.toggle('hidden',name!=='announce');
+}});
+
+function renderOverview(o){
+  var s=o.stats||{};
+  el('stat').innerHTML=
+    box(s.total||0,'总数')+box(s.active||0,'可用')+box(s.used||0,'用尽')+box(s.expired||0,'过期');
+  if(o.announcement){ann=o.announcement;renderAnnounce()}
+}
+function box(n,t){return '<div class="box"><div class="n">'+n+'</div><div class="t">'+t+'</div></div>'}
+
+// ---- 卡密 ----
+el('cType').onchange=function(){
+  var time=el('cType').value==='time';
+  el('daysWrap').classList.toggle('hidden',!time);
+  el('countWrap').classList.toggle('hidden',time);
+};
+var unbind=false;
+el('cUnbind').onclick=function(){unbind=!unbind;el('cUnbind').classList.toggle('on',unbind)};
+
+el('genBtn').onclick=async function(){
+  var payload={type:el('cType').value,qty:parseInt(el('cQty').value||'1',10),
+    days:parseInt(el('cDays').value||'1',10),totalCount:parseInt(el('cCount').value||'1',10),
+    unbindable:unbind,note:el('cNote').value};
+  var r=await api('/api/admin/cards/generate',{method:'POST',body:JSON.stringify(payload)});
+  if(r.status===401){setTok('');showLogin();return}
+  if(r.status===200&&r.body.ok){
+    el('genOut').classList.remove('hidden');
+    el('genOut').textContent='已生成 '+r.body.cards.length+' 张：\n'+r.body.cards.join('\n');
+    el('cardsMsg').className='msg ok';el('cardsMsg').textContent='生成成功 ✓';
+    loadCards();refreshOverview();
+  }else{el('cardsMsg').className='msg err';el('cardsMsg').textContent=(r.body&&r.body.error)||'生成失败'}
+};
+el('refreshBtn').onclick=function(){loadCards();refreshOverview()};
+
+async function refreshOverview(){var r=await api('/api/admin/overview');if(r.status===200&&r.body.ok)renderOverview(r.body)}
+
+function fmt(ts){return ts?new Date(ts).toLocaleString():'-'}
+function statusOf(c){
+  if(!c.enabled)return '<span class="pill off">已禁用</span>';
+  var now=Date.now();
+  if(c.type==='time'&&c.markcode&&c.expiry&&now>c.expiry)return '<span class="pill off">已过期</span>';
+  if(c.type==='count'&&c.usedCount>=c.totalCount)return '<span class="pill off">已用尽</span>';
+  return c.markcode?'<span class="pill time">已激活</span>':'<span class="pill count">未使用</span>';
+}
+async function loadCards(){
+  var r=await api('/api/admin/cards');
+  if(r.status===401){setTok('');showLogin();return}
+  if(!(r.status===200&&r.body.ok))return;
+  var rows=r.body.cards.map(function(c){
+    var typ=c.type==='time'?('<span class="pill time">时卡'+c.days+'天</span>'):('<span class="pill count">次卡'+c.totalCount+'次</span>');
+    var usage=c.type==='time'
+      ?(c.expiry?('到期 '+fmt(c.expiry)):'未激活')
+      :('已用 '+c.usedCount+'/'+c.totalCount);
+    var bind=c.markcode?('<div class="muted">绑:'+c.markcode.slice(0,12)+'…'+(c.unbindable?' 🔒':'')+'</div>'):'';
+    var acts='';
+    acts+='<button class="btn ghost sm" data-act="'+(c.enabled?'disable':'enable')+'" data-code="'+c.code+'">'+(c.enabled?'禁用':'启用')+'</button>';
+    if(c.markcode&&!c.unbindable)acts+='<button class="btn ghost sm" data-act="unbind" data-code="'+c.code+'">解绑</button>';
+    acts+='<button class="btn ghost sm" data-act="delete" data-code="'+c.code+'" style="color:#FF6B5E">删除</button>';
+    return '<tr><td class="code">'+c.code+'</td><td>'+typ+'</td><td>'+statusOf(c)+'</td><td>'+usage+bind+'</td><td class="muted">'+(c.source||'')+'</td><td>'+acts+'</td></tr>';
+  }).join('');
+  el('cardRows').innerHTML=rows||'<tr><td colspan="6" class="muted">暂无卡密</td></tr>';
+  el('cardRows').querySelectorAll('button[data-act]').forEach(function(b){
+    b.onclick=async function(){
+      var act=b.getAttribute('data-act'),code=b.getAttribute('data-code');
+      if(act==='delete'&&!confirm('确认删除卡密 '+code+' ?'))return;
+      var r=await api('/api/admin/cards/update',{method:'POST',body:JSON.stringify({code:code,action:act})});
+      if(r.status===200&&r.body.ok){loadCards();refreshOverview()}
+      else alert((r.body&&r.body.error)||'操作失败');
+    };
+  });
+}
+
+// ---- 公告 ----
+el('aTrack').parentElement.onclick=function(){ann.enabled=!ann.enabled;renderAnnounceToggle()};
+function renderAnnounceToggle(){el('aTrack').classList.toggle('on',ann.enabled);el('aText').textContent=ann.enabled?'已开启':'已关闭'}
+function renderAnnounce(){el('aTitle').value=ann.title||'';el('aContent').value=ann.content||'';renderAnnounceToggle();
+  el('aUpdated').textContent=ann.updatedAt?('上次更新：'+fmt(ann.updatedAt)):'尚未设置'}
+async function loadAnnounce(){var r=await api('/api/admin/overview');if(r.status===200&&r.body.ok&&r.body.announcement){ann=r.body.announcement;renderAnnounce()}}
+async function saveAnnounce(enabledOverride){
+  var payload={enabled:typeof enabledOverride==='boolean'?enabledOverride:ann.enabled,title:el('aTitle').value,content:el('aContent').value};
+  var r=await api('/api/admin/announcement',{method:'POST',body:JSON.stringify(payload)});
+  if(r.status===401){setTok('');showLogin();return}
+  if(r.status===200&&r.body.ok){ann=r.body.announcement;renderAnnounce();el('aMsg').className='msg ok';el('aMsg').textContent='已保存 ✓';setTimeout(function(){el('aMsg').textContent=''},2500)}
+  else{el('aMsg').className='msg err';el('aMsg').textContent=(r.body&&r.body.error)||'保存失败'}
+}
+el('aSave').onclick=function(){saveAnnounce()};
+el('aClear').onclick=function(){el('aTitle').value='';el('aContent').value='';ann.enabled=false;saveAnnounce(false)};
+
+// 启动
+if(tok()){
+  api('/api/admin/overview').then(function(r){
+    if(r.status===200&&r.body.ok){showMain();renderOverview(r.body);loadCards();loadAnnounce()}else{setTok('');showLogin()}
+  });
+}else showLogin();
+</script>
+</body>
+</html>

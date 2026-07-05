@@ -1,0 +1,89 @@
+{
+  "sidecar_url": {
+    "description": "本地 sidecar 地址",
+    "type": "string",
+    "default": "http://127.0.0.1:18787",
+    "hint": "通常保持默认。需要连接已有 sidecar 时可修改。"
+  },
+  "sidecar_host": {
+    "description": "sidecar 监听地址",
+    "type": "string",
+    "default": "127.0.0.1"
+  },
+  "sidecar_port": {
+    "description": "sidecar 监听端口",
+    "type": "int",
+    "default": 18787
+  },
+  "auto_start_sidecar": {
+    "description": "随 AstrBot 插件加载自动启动 sidecar",
+    "type": "bool",
+    "default": true
+  },
+  "bridge_token": {
+    "description": "本地调用鉴权 token",
+    "type": "string",
+    "default": "",
+    "hint": "留空表示只依赖 127.0.0.1 监听；多进程共享 sidecar 时建议设置。"
+  },
+  "allowed_groups": {
+    "description": "允许使用 Agent bridge 的群号",
+    "type": "string",
+    "default": "",
+    "hint": "逗号分隔；留空表示不限制群。"
+  },
+  "allowed_users": {
+    "description": "允许使用 Agent bridge 的用户 ID",
+    "type": "string",
+    "default": "",
+    "hint": "逗号分隔；留空表示不限制用户。"
+  },
+  "claude_models": {
+    "description": "Claude/reclaude 可显示模型",
+    "type": "string",
+    "default": "sonnet,opus,haiku,fable",
+    "hint": "逗号分隔；会出现在 OpenAI-compatible /v1/models 中。"
+  },
+  "gpt_models": {
+    "description": "GPT/Codex 可显示模型",
+    "type": "string",
+    "default": "gpt-5.5,gpt-5.4,gpt-5.4-mini,gpt-5.3-codex-spark",
+    "hint": "逗号分隔；会出现在 OpenAI-compatible /v1/models 中。"
+  },
+  "default_claude_model": {
+    "description": "Claude/reclaude 默认模型",
+    "type": "string",
+    "default": "sonnet"
+  },
+  "default_gpt_model": {
+    "description": "GPT/Codex 默认模型",
+    "type": "string",
+    "default": "gpt-5.5"
+  },
+  "claude_command": {
+    "description": "Claude/reclaude 命令",
+    "type": "string",
+    "default": "reclaude -p --output-format json"
+  },
+  "gpt_command": {
+    "description": "GPT/Codex 命令",
+    "type": "string",
+    "default": "codex exec --json --sandbox read-only --skip-git-repo-check"
+  },
+  "workdir": {
+    "description": "Agent CLI 工作目录",
+    "type": "string",
+    "default": "",
+    "hint": "留空时使用插件目录。需要让 agent 读写指定项目时配置为项目路径。"
+  },
+  "request_timeout": {
+    "description": "单次调用超时时间(秒)",
+    "type": "int",
+    "default": 300
+  },
+  "max_output_chars": {
+    "description": "单条回复最大字符数",
+    "type": "int",
+    "default": 6000
+  }
+}

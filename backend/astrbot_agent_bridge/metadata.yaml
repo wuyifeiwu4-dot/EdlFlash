@@ -1,0 +1,6 @@
+name: astrbot_agent_bridge
+desc: AstrBot 本地 Agent Bridge
+help: 使用 /claude <问题> 或 /gpt <问题> 调用本机 reclaude / codex
+version: 0.1.0
+author: EdlFlash
+repo: ""
