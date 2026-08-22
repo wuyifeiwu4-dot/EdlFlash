@@ -26,6 +26,35 @@ jobs:
           du -sh edl_flash_app/src/main/assets
           ls -lah edl_flash_app/src/main/assets
 
+      # ========== 新增：修复乱码路径 ==========
+      - name: Fix broken asset path encoding
+        run: |
+          # 查找真实的 DevprgProgrammer.elf（不管它在哪个乱码文件夹里）
+          REAL_ELF=$(find edl_flash_app/src/main/assets -name "DevprgProgrammer.elf" -print -quit)
+          if [ -z "$REAL_ELF" ]; then
+            echo "ERROR: DevprgProgrammer.elf not found anywhere!"
+            exit 1
+          fi
+          echo "Found at: $REAL_ELF"
+
+          # 创建 Gradle 期望的精确路径（直接从报错中复制）
+          TARGET_DIR="edl_flash_app/src/main/assets/loader_builtin/ڡ���_MEIZU/ڡ���16XS"
+          mkdir -p "$TARGET_DIR"
+
+          # 复制文件到目标位置
+          cp "$REAL_ELF" "$TARGET_DIR/"
+          echo "✅ Copied to: $TARGET_DIR/DevprgProgrammer.elf"
+
+      - name: Verify fixed assets
+        run: |
+          if [ -f "edl_flash_app/src/main/assets/loader_builtin/ڡ���_MEIZU/ڡ���16XS/DevprgProgrammer.elf" ]; then
+            echo "✅ Verification passed – file is in the correct place."
+          else
+            echo "❌ Verification failed – file still missing in expected path."
+            exit 1
+          fi
+      # ========== 新增结束 ==========
+
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
