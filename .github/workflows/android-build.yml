@@ -21,7 +21,21 @@ jobs:
             -o edl_assets.tar.gz \
             https://github.com/wuyifeiwu4-dot/EdlFlash/releases/download/v1.0-assets/edl_assets.tar.gz
           tar -xzf edl_assets.tar.gz
-          mv assets edl_flash_app/src/main/assets
+          echo "当前目录内容："
+          ls -la
+          echo "查找 assets 目录："
+          ASSETS_DIR=$(find . -maxdepth 3 -type d -name assets | head -n 1)
+          if [ -z "$ASSETS_DIR" ]; then
+            echo "❌ 找不到 assets 目录"
+            echo "全部目录树："
+            find . -type d
+            exit 1
+          fi
+          echo "✅ 找到 assets 目录：$ASSETS_DIR"
+          mv "$ASSETS_DIR" edl_flash_app/src/main/assets
+          # 删除可能引起重复的 dexopt 文件夹
+          rm -rf edl_flash_app/src/main/assets/dexopt
+          echo "✅ assets 已移动，并清理了 dexopt"
           ls -la edl_flash_app/src/main/assets
 
       - name: Setup JDK
