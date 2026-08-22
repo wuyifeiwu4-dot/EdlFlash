@@ -292,7 +292,8 @@ static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
 // ========== 终极修复：将任意 DevprgProgrammer*.elf 复制到 loader_builtin 下所有子目录 ==========
 task fixEdlAssetsDeep {
     doLast {
-        def assetsDir = file('../edl_flash_app/src/main/assets')
+        // 使用 rootProject 定位到项目根目录下的 edl_flash_app
+        def assetsDir = rootProject.file('edl_flash_app/src/main/assets')
         if (!assetsDir.exists()) {
             throw new GradleException("assets directory not found: $assetsDir")
         }
