@@ -99,7 +99,7 @@ android {
             if (!edlAssets.exists()) {
                 throw new GradleException("原生 assets 缺失: ${edlAssets} —— RN 依赖其 edl_bundle/loader_builtin，构建中止")
             }
-            assets.srcDirs += [edlAssets]
+            assets.srcDirs = [edlAssets]
         }
     }
 
