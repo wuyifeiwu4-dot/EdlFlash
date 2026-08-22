@@ -25,7 +25,8 @@ jobs:
           echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
 
-      - name: Ensure ELF variants exist
+      # ========== 核心修复：将 ELF 复制到 loader_builtin 根目录 ==========
+      - name: Copy ELF to loader_builtin root
         run: |
           set -e
           ASSETS_DIR="edl_flash_app/src/main/assets"
@@ -39,36 +40,23 @@ jobs:
           fi
           echo "✅ Found ELF: $ELF"
 
-          # 找到包含 16XS 的目录
-          TARGET_DIR=$(find "$LOADER_DIR" -type d -name "*16XS*" -print -quit)
-          if [ -z "$TARGET_DIR" ]; then
-            echo "❌ 16XS directory not found"
-            find "$LOADER_DIR" -type d
-            exit 1
-          fi
-          echo "✅ Target: $TARGET_DIR"
-
-          # 复制所有命名（但跳过自身）
+          # 复制到 loader_builtin 根目录，提供三种命名
           for suffix in "" "1" "2"; do
-            target="$TARGET_DIR/DevprgProgrammer${suffix}.elf"
-            if [ -f "$target" ]; then
-              echo "ℹ️  Already exists: $target"
-            else
+            target="$LOADER_DIR/DevprgProgrammer${suffix}.elf"
+            if [ ! -f "$target" ]; then
               cp -v "$ELF" "$target"
+            else
+              echo "ℹ️  Already exists: $target"
             fi
           done
 
-          # 额外复制到所有子目录（只补充缺失）
-          find "$LOADER_DIR" -type d | while read -r dir; do
-            for suffix in "" "1" "2"; do
-              target="$dir/DevprgProgrammer${suffix}.elf"
-              if [ ! -f "$target" ]; then
-                cp "$ELF" "$target" 2>/dev/null || true
-              fi
-            done
-          done
-
-          echo "✅ ELF variants ensured."
+          # 验证根目录下是否存在至少一个
+          if [ -f "$LOADER_DIR/DevprgProgrammer.elf" ]; then
+            echo "✅ Verification passed: loader_builtin/DevprgProgrammer.elf exists."
+          else
+            echo "❌ Verification failed: no ELF in loader_builtin root."
+            exit 1
+          fi
 
       - name: Setup JDK
         uses: actions/setup-java@v4
