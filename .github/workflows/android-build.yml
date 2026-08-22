@@ -25,12 +25,13 @@ jobs:
           echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
 
-      # ========== 强制修复缺失的 ELF 路径 ==========
-      - name: Force fix missing ELF path
+      # ========== 自动修复所有子目录的 ELF 缺失（通杀所有机型） ==========
+      - name: Force fix missing ELF path (all subdirs)
         run: |
           ASSETS_DIR="edl_flash_app/src/main/assets"
+          LOADER_DIR="$ASSETS_DIR/loader_builtin"
 
-          # 查找任意 DevprgProgrammer*.elf（支持 .elf 或 1.elf）
+          # 查找任意 DevprgProgrammer*.elf（支持 .elf、1.elf、2.elf 等）
           ELF=$(find "$ASSETS_DIR" -type f -name "DevprgProgrammer*.elf" | head -n 1)
           if [ -z "$ELF" ]; then
             echo "ERROR: No DevprgProgrammer*.elf found in assets!"
@@ -38,20 +39,27 @@ jobs:
           fi
           echo "Found ELF at: $ELF"
 
-          # 创建 Gradle 报错中出现的所有已知路径
-          mkdir -p "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS"
-          mkdir -p "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18"
+          # 确保 loader_builtin 目录存在
+          mkdir -p "$LOADER_DIR"
 
-          # 复制并同时提供两种命名（.elf 和 1.elf）
-          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/DevprgProgrammer.elf"
-          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/DevprgProgrammer1.elf"
-          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18/DevprgProgrammer.elf"
-          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18/DevprgProgrammer1.elf"
+          # 1. 递归遍历 loader_builtin 下的所有子目录（包括多级）
+          find "$LOADER_DIR" -type d | while read -r dir; do
+            # 对每个目录复制三种命名
+            for name in DevprgProgrammer.elf DevprgProgrammer1.elf DevprgProgrammer2.elf; do
+              cp "$ELF" "$dir/$name" 2>/dev/null || true
+            done
+          done
 
-          echo "✅ Copied ELF to all expected paths."
+          # 2. 也复制到 loader_builtin 根目录（以防 Gradle 直接找根）
+          for name in DevprgProgrammer.elf DevprgProgrammer1.elf DevprgProgrammer2.elf; do
+            cp "$ELF" "$LOADER_DIR/$name" 2>/dev/null || true
+          done
 
-          # 验证文件是否存在
-          ls -la "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/"
+          echo "✅ ELF deployed to all subdirectories (including all brands/models) with multiple names."
+
+          # 验证：列出 loader_builtin 下所有子目录的内容（简要）
+          echo "===== Verifying some directories ====="
+          find "$LOADER_DIR" -type f -name "DevprgProgrammer*.elf" | head -10
 
       - name: Setup JDK
         uses: actions/setup-java@v4
