@@ -25,6 +25,34 @@ jobs:
           echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
 
+      # ========== 强制修复缺失的 ELF 路径 ==========
+      - name: Force fix missing ELF path
+        run: |
+          ASSETS_DIR="edl_flash_app/src/main/assets"
+
+          # 查找任意 DevprgProgrammer*.elf（支持 .elf 或 1.elf）
+          ELF=$(find "$ASSETS_DIR" -type f -name "DevprgProgrammer*.elf" | head -n 1)
+          if [ -z "$ELF" ]; then
+            echo "ERROR: No DevprgProgrammer*.elf found in assets!"
+            exit 1
+          fi
+          echo "Found ELF at: $ELF"
+
+          # 创建 Gradle 报错中出现的所有已知路径
+          mkdir -p "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS"
+          mkdir -p "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18"
+
+          # 复制并同时提供两种命名（.elf 和 1.elf）
+          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/DevprgProgrammer.elf"
+          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/DevprgProgrammer1.elf"
+          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18/DevprgProgrammer.elf"
+          cp "$ELF" "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���18/DevprgProgrammer1.elf"
+
+          echo "✅ Copied ELF to all expected paths."
+
+          # 验证文件是否存在
+          ls -la "$ASSETS_DIR/loader_builtin/ڡ���_MEIZU/ڡ���16XS/"
+
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
