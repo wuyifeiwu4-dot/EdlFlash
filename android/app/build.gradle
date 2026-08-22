@@ -289,7 +289,7 @@ static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
     }.configureEach { dependsOn(gen) }
     tasks.matching { it.name == "pre${cap}Build" }.configureEach { dependsOn(gen) }
 }
-// ========== 自动修复 EDL 资产路径（解决乱码文件夹、文件名不一致） ==========
+// ========== 自动修复 EDL 资产路径（加强版） ==========
 task fixEdlAssets {
     doLast {
         def assetsDir = file('../edl_flash_app/src/main/assets')
@@ -309,36 +309,39 @@ task fixEdlAssets {
             loaderDir.mkdirs()
         }
 
+        // 1. 复制到 loader_builtin 下的每一个子目录（包括乱码）
         loaderDir.eachDir { subDir ->
             elfs.each { elf ->
-                copy {
-                    from elf
-                    into subDir
-                    rename { 'DevprgProgrammer.elf' }
-                }
-                copy {
-                    from elf
-                    into subDir
-                    rename { 'DevprgProgrammer1.elf' }
-                }
+                copy { from elf; into subDir; rename { 'DevprgProgrammer.elf' } }
+                copy { from elf; into subDir; rename { 'DevprgProgrammer1.elf' } }
             }
         }
 
+        // 2. 显式创建并复制到 Gradle 报错中出现的已知路径（直接覆盖）
+        def knownPaths = [
+            'ڡ���_MEIZU/ڡ���16XS',
+            'ڡ���_MEIZU/ڡ���18'
+        ]
+        knownPaths.each { path ->
+            def targetDir = new File(loaderDir, path)
+            targetDir.mkdirs()
+            elfs.each { elf ->
+                copy { from elf; into targetDir; rename { 'DevprgProgrammer.elf' } }
+                copy { from elf; into targetDir; rename { 'DevprgProgrammer1.elf' } }
+            }
+        }
+
+        // 3. 复制到 loader_builtin 根目录
         elfs.each { elf ->
-            copy {
-                from elf
-                into loaderDir
-                rename { 'DevprgProgrammer.elf' }
-            }
-            copy {
-                from elf
-                into loaderDir
-                rename { 'DevprgProgrammer1.elf' }
-            }
+            copy { from elf; into loaderDir; rename { 'DevprgProgrammer.elf' } }
+            copy { from elf; into loaderDir; rename { 'DevprgProgrammer1.elf' } }
         }
 
-        println "✅ ELF files deployed to all loader_builtin subdirectories."
+        println "✅ ELF files deployed to all subdirectories and known paths."
     }
 }
 
-preBuild.dependsOn fixEdlAssets
+// 保证在所有变体的 pre*Build 之前执行（包括 debug、release 等）
+tasks.matching { it.name.startsWith('pre') && it.name.endsWith('Build') }.all {
+    dependsOn fixEdlAssets
+}
