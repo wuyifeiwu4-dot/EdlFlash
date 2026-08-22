@@ -103,6 +103,14 @@ android {
         }
     }
 
+    // ========== 新增：显式排除可能重复的文件 ==========
+    packagingOptions {
+        resources {
+            excludes += ['assets/dexopt/baseline.prof']
+        }
+    }
+    // ========== 新增结束 ==========
+
     defaultConfig {
         applicationId "com.edlflash"
         minSdkVersion rootProject.ext.minSdkVersion
