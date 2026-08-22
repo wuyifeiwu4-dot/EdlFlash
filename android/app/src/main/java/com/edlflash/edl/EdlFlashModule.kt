@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * RN 桥接：把忠实移植的 FlashEngine（完整 EDL 引擎）暴露给 JS。
  * 文件/目录选择走真实 SAF；命令执行完才 resolve（使 busy/stop/结果回显正确）。
+ * 
+ * 修改说明：已去除卡密验证（SecurityCore.gate() 恒返回 true）
  */
 class EdlFlashModule(private val reactCtx: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactCtx), EdlCallback, ActivityEventListener, LifecycleEventListener {
@@ -60,6 +62,9 @@ class EdlFlashModule(private val reactCtx: ReactApplicationContext) :
   init {
     reactCtx.addActivityEventListener(this)
     reactCtx.addLifecycleEventListener(this)
+    // ========== 修改：注释掉 so 加载，避免 native 验证导致闪退 ==========
+    // System.loadLibrary("edlsec")
+    // ========== 修改结束 ==========
   }
 
   override fun getName() = "EdlFlash"
@@ -467,16 +472,10 @@ class EdlFlashModule(private val reactCtx: ReactApplicationContext) :
     try {
       io.execute {
         try {
-          // 加固：真实 EDL 操作必须经 native 能力门控（会话由签名绑定的卡密校验铸造，
-          // JS 层 hook 无法凭空伪造）。未授权/被注入/被调试时拒绝执行（dispatching 由 finally 复位）。
-          if (!SecurityCore.gate()) {
-            promise.resolve(Arguments.createMap().apply {
-              putBoolean("ok", false)
-              putBoolean("started", false)
-              putBoolean("vipAuthorized", engine.isVipAuthorized())
-            })
-            return@execute
-          }
+          // ========== 修改：去掉 SecurityCore.gate() 验证 ==========
+          // 原代码：if (!SecurityCore.gate()) { ... }
+          // 修改为：直接放行（gate 恒 true）
+          // ========== 修改结束 ==========
           engine.applyInput(buildInput(spec))
           val started = op(engine)
           promise.resolve(Arguments.createMap().apply {
@@ -638,7 +637,10 @@ class EdlFlashModule(private val reactCtx: ReactApplicationContext) :
   fun decryptOfp(srcPath: String, outDir: String, promise: Promise) {
     backgroundExecutor.execute {
       try {
-        if (!SecurityCore.gate()) { promise.reject("decrypt_ofp", "未授权或环境异常"); return@execute }
+        // ========== 修改：去掉 SecurityCore.gate() 验证 ==========
+        // 原代码：if (!SecurityCore.gate()) { ... }
+        // 修改为：直接放行（gate 恒 true）
+        // ========== 修改结束 ==========
         val out = OfpDecryptor(OfpDecryptor.Logger { onLog(it) }).decrypt(srcPath, File(outDir).apply { mkdirs() }.absolutePath)
         promise.resolve(Arguments.createMap().apply { putString("outDir", out) })
       } catch (e: Exception) { promise.reject("decrypt_ofp", e.message, e) }
@@ -649,7 +651,10 @@ class EdlFlashModule(private val reactCtx: ReactApplicationContext) :
   fun decryptOps(srcPath: String, outDir: String, promise: Promise) {
     backgroundExecutor.execute {
       try {
-        if (!SecurityCore.gate()) { promise.reject("decrypt_ops", "未授权或环境异常"); return@execute }
+        // ========== 修改：去掉 SecurityCore.gate() 验证 ==========
+        // 原代码：if (!SecurityCore.gate()) { ... }
+        // 修改为：直接放行（gate 恒 true）
+        // ========== 修改结束 ==========
         val out = OpsDecryptor(OpsDecryptor.Logger { onLog(it) }).decrypt(srcPath, File(outDir).apply { mkdirs() }.absolutePath)
         promise.resolve(Arguments.createMap().apply { putString("outDir", out) })
       } catch (e: Exception) { promise.reject("decrypt_ops", e.message, e) }
