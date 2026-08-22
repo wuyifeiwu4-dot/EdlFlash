@@ -95,7 +95,7 @@ android {
     // 装机后所有 EDL 命令因缺 qdl 失败且无提示，故构建期直接 fail-fast。
     sourceSets {
         main {
-            def edlAssets = file("/root/edl_flash_app/app/src/main/assets")
+            def edlAssets = file("${rootDir}/../edl_flash_app/src/main/assets")
             if (!edlAssets.exists()) {
                 throw new GradleException("原生 assets 缺失: ${edlAssets} —— RN 依赖其 edl_bundle/loader_builtin，构建中止")
             }
