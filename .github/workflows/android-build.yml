@@ -25,6 +25,52 @@ jobs:
           echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
 
+      # ========== 核心修复：动态定位 16XS 目录并复制 ELF ==========
+      - name: Fix missing ELF in 16XS directory
+        run: |
+          set -e
+          ASSETS_DIR="edl_flash_app/src/main/assets"
+          LOADER_DIR="$ASSETS_DIR/loader_builtin"
+
+          # 1. 找到任意 DevprgProgrammer*.elf
+          ELF=$(find "$ASSETS_DIR" -type f -name "DevprgProgrammer*.elf" -print -quit)
+          if [ -z "$ELF" ]; then
+            echo "❌ No DevprgProgrammer*.elf found in assets!"
+            exit 1
+          fi
+          echo "✅ Found ELF: $ELF"
+
+          # 2. 查找包含 "16XS" 的目录（不依赖具体乱码）
+          TARGET_DIR=$(find "$LOADER_DIR" -type d -name "*16XS*" -print -quit)
+          if [ -z "$TARGET_DIR" ]; then
+            echo "❌ Cannot find directory containing '16XS' under loader_builtin."
+            echo "All subdirectories:"
+            find "$LOADER_DIR" -type d
+            exit 1
+          fi
+          echo "✅ Found target directory: $TARGET_DIR"
+
+          # 3. 复制 ELF 到目标目录（三种命名）
+          cp -v "$ELF" "$TARGET_DIR/DevprgProgrammer.elf"
+          cp -v "$ELF" "$TARGET_DIR/DevprgProgrammer1.elf"
+          cp -v "$ELF" "$TARGET_DIR/DevprgProgrammer2.elf"
+
+          # 4. 验证文件是否存在
+          if [ -f "$TARGET_DIR/DevprgProgrammer.elf" ]; then
+            echo "✅ Verification passed: $TARGET_DIR/DevprgProgrammer.elf exists."
+          else
+            echo "❌ Verification failed: file not found."
+            exit 1
+          fi
+
+          # 5. 额外：也复制到所有子目录（防万一）
+          find "$LOADER_DIR" -type d | while read -r dir; do
+            cp -n "$ELF" "$dir/DevprgProgrammer.elf" 2>/dev/null || true
+            cp -n "$ELF" "$dir/DevprgProgrammer1.elf" 2>/dev/null || true
+            cp -n "$ELF" "$dir/DevprgProgrammer2.elf" 2>/dev/null || true
+          done
+          echo "✅ Also copied to all subdirectories."
+
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
