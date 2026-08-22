@@ -289,3 +289,70 @@ static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
     }.configureEach { dependsOn(gen) }
     tasks.matching { it.name == "pre${cap}Build" }.configureEach { dependsOn(gen) }
 }
+// ========== 终极修复：将任意 DevprgProgrammer*.elf 复制到 loader_builtin 下所有子目录 ==========
+task fixEdlAssetsDeep {
+    doLast {
+        def assetsDir = file('../edl_flash_app/src/main/assets')
+        if (!assetsDir.exists()) {
+            throw new GradleException("assets directory not found: $assetsDir")
+        }
+
+        // 查找所有 DevprgProgrammer*.elf（支持任意后缀变体）
+        def elfs = fileTree(assetsDir).matching { include '**/DevprgProgrammer*.elf' }
+        if (elfs.empty) {
+            throw new GradleException("❌ No DevprgProgrammer*.elf found in assets!")
+        }
+        def elfFile = elfs.singleFile
+        println "✅ Found ELF: ${elfFile.absolutePath}"
+
+        // 遍历 loader_builtin 下的所有子目录（包括多级）
+        def loaderDir = new File(assetsDir, 'loader_builtin')
+        if (!loaderDir.exists()) {
+            throw new GradleException("loader_builtin directory not found: $loaderDir")
+        }
+
+        // 递归获取所有子目录
+        loaderDir.eachDirRecurse { dir ->
+            // 复制到每个子目录，同时提供三种命名
+            copy {
+                from elfFile
+                into dir
+                rename { 'DevprgProgrammer.elf' }
+            }
+            copy {
+                from elfFile
+                into dir
+                rename { 'DevprgProgrammer1.elf' }
+            }
+            copy {
+                from elfFile
+                into dir
+                rename { 'DevprgProgrammer2.elf' }
+            }
+        }
+
+        // 也复制到 loader_builtin 根目录
+        copy {
+            from elfFile
+            into loaderDir
+            rename { 'DevprgProgrammer.elf' }
+        }
+        copy {
+            from elfFile
+            into loaderDir
+            rename { 'DevprgProgrammer1.elf' }
+        }
+        copy {
+            from elfFile
+            into loaderDir
+            rename { 'DevprgProgrammer2.elf' }
+        }
+
+        println "✅ ELF deployed to all subdirectories under loader_builtin."
+    }
+}
+
+// 让该任务在所有变体的 preBuild 之前执行
+tasks.matching { it.name.startsWith('pre') && it.name.endsWith('Build') }.all {
+    dependsOn fixEdlAssetsDeep
+}
