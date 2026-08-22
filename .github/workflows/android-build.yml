@@ -22,41 +22,7 @@ jobs:
             https://github.com/wuyifeiwu4-dot/EdlFlash/releases/download/v1.0-assets/edl_assets.tar.gz
           tar -xzf edl_assets.tar.gz
           mv assets edl_flash_app/src/main/assets
-          echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
-
-      # ========== 核心修复：将 ELF 复制到 loader_builtin 根目录 ==========
-      - name: Copy ELF to loader_builtin root
-        run: |
-          set -e
-          ASSETS_DIR="edl_flash_app/src/main/assets"
-          LOADER_DIR="$ASSETS_DIR/loader_builtin"
-
-          # 找到任意 DevprgProgrammer*.elf
-          ELF=$(find "$ASSETS_DIR" -type f -name "DevprgProgrammer*.elf" -print -quit)
-          if [ -z "$ELF" ]; then
-            echo "❌ No DevprgProgrammer*.elf found"
-            exit 1
-          fi
-          echo "✅ Found ELF: $ELF"
-
-          # 复制到 loader_builtin 根目录，提供三种命名
-          for suffix in "" "1" "2"; do
-            target="$LOADER_DIR/DevprgProgrammer${suffix}.elf"
-            if [ ! -f "$target" ]; then
-              cp -v "$ELF" "$target"
-            else
-              echo "ℹ️  Already exists: $target"
-            fi
-          done
-
-          # 验证根目录下是否存在至少一个
-          if [ -f "$LOADER_DIR/DevprgProgrammer.elf" ]; then
-            echo "✅ Verification passed: loader_builtin/DevprgProgrammer.elf exists."
-          else
-            echo "❌ Verification failed: no ELF in loader_builtin root."
-            exit 1
-          fi
 
       - name: Setup JDK
         uses: actions/setup-java@v4
