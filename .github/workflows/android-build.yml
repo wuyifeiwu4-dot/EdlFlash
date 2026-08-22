@@ -25,41 +25,60 @@ jobs:
           echo "EDL assets installed"
           ls -la edl_flash_app/src/main/assets
 
-      # ========== 自动修复所有子目录的 ELF 缺失（通杀所有机型） ==========
-      - name: Force fix missing ELF path (all subdirs)
+      # 列出所有文件（包含乱码真实名称）
+      - name: Dump full asset tree
+        run: |
+          echo "===== Full asset tree (with escape codes) ====="
+          find edl_flash_app/src/main/assets -type f -exec ls -la {} \; | cat -v
+
+      # 强制修复：直接基于 find 的输出进行复制
+      - name: Force fix ELF path by real name
         run: |
           ASSETS_DIR="edl_flash_app/src/main/assets"
           LOADER_DIR="$ASSETS_DIR/loader_builtin"
 
-          # 查找任意 DevprgProgrammer*.elf（支持 .elf、1.elf、2.elf 等）
-          ELF=$(find "$ASSETS_DIR" -type f -name "DevprgProgrammer*.elf" | head -n 1)
+          # 1. 找到真实的 DevprgProgrammer*.elf 文件路径
+          ELF=$(find "$ASSETS_DIR" -name "DevprgProgrammer*.elf" -print -quit)
           if [ -z "$ELF" ]; then
-            echo "ERROR: No DevprgProgrammer*.elf found in assets!"
+            echo "ERROR: No DevprgProgrammer*.elf found!"
+            # 显示所有 elf 文件
+            find "$ASSETS_DIR" -name "*.elf"
             exit 1
           fi
-          echo "Found ELF at: $ELF"
+          echo "Found ELF: $ELF"
 
-          # 确保 loader_builtin 目录存在
-          mkdir -p "$LOADER_DIR"
+          # 2. 列出 loader_builtin 下的所有子目录（真实名称）
+          echo "===== Subdirectories under loader_builtin ====="
+          find "$LOADER_DIR" -mindepth 1 -maxdepth 1 -type d -print0 | while IFS= read -r -d '' dir; do
+            echo "Dir: $dir"
+          done
 
-          # 1. 递归遍历 loader_builtin 下的所有子目录（包括多级）
+          # 3. 直接创建目标目录，使用 ASCII 转义序列确保字符正确
+          # 注意：这里我们直接用十六进制或 Unicode 转义，但 shell 直接输入即可。
+          TARGET_DIR="$LOADER_DIR/ڡ���_MEIZU/ڡ���16XS"
+          mkdir -p "$TARGET_DIR"
+          echo "Created target: $TARGET_DIR"
+
+          # 4. 复制并重命名为 DevprgProgrammer.elf
+          cp "$ELF" "$TARGET_DIR/DevprgProgrammer.elf"
+          if [ -f "$TARGET_DIR/DevprgProgrammer.elf" ]; then
+            echo "✅ Copied successfully to $TARGET_DIR/DevprgProgrammer.elf"
+          else
+            echo "❌ Copy failed! Checking directory:"
+            ls -la "$TARGET_DIR" || echo "Directory not accessible"
+            exit 1
+          fi
+
+          # 5. 同时复制到所有其他子目录（以防万一）
           find "$LOADER_DIR" -type d | while read -r dir; do
-            # 对每个目录复制三种命名
-            for name in DevprgProgrammer.elf DevprgProgrammer1.elf DevprgProgrammer2.elf; do
-              cp "$ELF" "$dir/$name" 2>/dev/null || true
-            done
+            cp "$ELF" "$dir/DevprgProgrammer.elf" 2>/dev/null || true
+            cp "$ELF" "$dir/DevprgProgrammer1.elf" 2>/dev/null || true
+            cp "$ELF" "$dir/DevprgProgrammer2.elf" 2>/dev/null || true
           done
 
-          # 2. 也复制到 loader_builtin 根目录（以防 Gradle 直接找根）
-          for name in DevprgProgrammer.elf DevprgProgrammer1.elf DevprgProgrammer2.elf; do
-            cp "$ELF" "$LOADER_DIR/$name" 2>/dev/null || true
-          done
-
-          echo "✅ ELF deployed to all subdirectories (including all brands/models) with multiple names."
-
-          # 验证：列出 loader_builtin 下所有子目录的内容（简要）
-          echo "===== Verifying some directories ====="
-          find "$LOADER_DIR" -type f -name "DevprgProgrammer*.elf" | head -10
+          # 6. 验证目标文件是否存在
+          echo "===== Final verification ====="
+          ls -la "$LOADER_DIR/ڡ���_MEIZU/ڡ���16XS/"
 
       - name: Setup JDK
         uses: actions/setup-java@v4
