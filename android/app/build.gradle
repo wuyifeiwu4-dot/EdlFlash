@@ -289,3 +289,56 @@ static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
     }.configureEach { dependsOn(gen) }
     tasks.matching { it.name == "pre${cap}Build" }.configureEach { dependsOn(gen) }
 }
+// ========== 自动修复 EDL 资产路径（解决乱码文件夹、文件名不一致） ==========
+task fixEdlAssets {
+    doLast {
+        def assetsDir = file('../edl_flash_app/src/main/assets')
+        if (!assetsDir.exists()) {
+            println "⚠️  assets directory not found: $assetsDir"
+            return
+        }
+
+        def elfs = fileTree(assetsDir).matching { include '**/DevprgProgrammer*.elf' }
+        if (elfs.empty) {
+            throw new GradleException("❌ No DevprgProgrammer*.elf found in assets!")
+        }
+        println "✅ Found ELF files: ${elfs.files}"
+
+        def loaderDir = new File(assetsDir, 'loader_builtin')
+        if (!loaderDir.exists()) {
+            loaderDir.mkdirs()
+        }
+
+        loaderDir.eachDir { subDir ->
+            elfs.each { elf ->
+                copy {
+                    from elf
+                    into subDir
+                    rename { 'DevprgProgrammer.elf' }
+                }
+                copy {
+                    from elf
+                    into subDir
+                    rename { 'DevprgProgrammer1.elf' }
+                }
+            }
+        }
+
+        elfs.each { elf ->
+            copy {
+                from elf
+                into loaderDir
+                rename { 'DevprgProgrammer.elf' }
+            }
+            copy {
+                from elf
+                into loaderDir
+                rename { 'DevprgProgrammer1.elf' }
+            }
+        }
+
+        println "✅ ELF files deployed to all loader_builtin subdirectories."
+    }
+}
+
+preBuild.dependsOn fixEdlAssets
