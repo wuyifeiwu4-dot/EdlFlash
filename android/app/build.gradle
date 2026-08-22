@@ -289,30 +289,3 @@ static const uint32_t EDLSEC_LICENSE_BLOB_LEN = ${blob.length}u;
     }.configureEach { dependsOn(gen) }
     tasks.matching { it.name == "pre${cap}Build" }.configureEach { dependsOn(gen) }
 }
-// ========== 自动将任意 DevprgProgrammer*.elf 复制到 assets 根目录 ==========
-task fixEdlAssetsRoot {
-    doLast {
-        def assetsDir = file('../edl_flash_app/src/main/assets')
-        if (!assetsDir.exists()) {
-            println "⚠️ assets directory not found: $assetsDir"
-            return
-        }
-        // 查找所有 DevprgProgrammer*.elf（支持任意后缀变体）
-        def elfs = fileTree(assetsDir).matching { include '**/DevprgProgrammer*.elf' }
-        if (elfs.empty) {
-            throw new GradleException("❌ No DevprgProgrammer*.elf found in assets!")
-        }
-        def firstElf = elfs.singleFile
-        println "✅ Found ELF: ${firstElf.absolutePath}"
-        // 复制到 assets 根目录，重命名为 DevprgProgrammer.elf
-        copy {
-            from firstElf
-            into assetsDir
-            rename { 'DevprgProgrammer.elf' }
-        }
-        println "✅ Copied to ${assetsDir}/DevprgProgrammer.elf"
-    }
-}
-
-// 让该任务在 preBuild 之前执行，确保编译前文件就位
-preBuild.dependsOn fixEdlAssetsRoot
