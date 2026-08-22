@@ -8,36 +8,46 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Download EDL assets
+        run: |
+          mkdir -p edl_flash_app/src/main
+          curl -L --fail \
+            -o edl_assets.tar.gz \
+            https://github.com/wuyifeiwu4-dot/EdlFlash/releases/download/v1.0-assets/edl_assets.tar.gz
+          tar -xzf edl_assets.tar.gz
+          mv assets edl_flash_app/src/main/assets
+          echo "EDL assets installed:"
+          du -sh edl_flash_app/src/main/assets
+          ls -lah edl_flash_app/src/main/assets
 
-    - name: Setup JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 17
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Install dependencies
-      run: npm install
+      - name: Install dependencies
+        run: npm install
 
-    - name: Build APK
-      run: |
-        cd android
-        chmod +x gradlew
-        ./gradlew assembleRelease
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: EdlFlash-release
-        path: android/app/build/outputs/apk/release/*.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdlFlash-release
+          path: android/app/build/outputs/apk/release/*.apk
